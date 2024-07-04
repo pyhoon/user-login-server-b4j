@@ -34,9 +34,9 @@ Private Sub ShowHelpPage
 	#Else
 	' Generate API Documentation from Controller Classes
 	strContents = ReadControllers(File.DirApp.Replace("\Objects", ""))
-	If File.Exists(File.DirApp, "help.html") = False Then
-		WebApiUtils.WriteTextFile("help.html", strContents)
-	End If
+	'If File.Exists(File.DirApp, "help.html") = False Then
+	WebApiUtils.WriteTextFile("help.html", strContents)
+	'End If
 	#End If
 	
 	strMain = WebApiUtils.BuildDocView(strMain, strContents)

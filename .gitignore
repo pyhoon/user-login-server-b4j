@@ -1,0 +1,7 @@
+# ignore files
+User Login Server.b4j
+*.b4j.meta
+
+# ignore ALL files in these directories
+AutoBackups/
+Objects/

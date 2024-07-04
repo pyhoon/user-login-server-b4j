@@ -1,5 +1,5 @@
 # Product:      User Login Server
-# Version:      1.00
+# Version:      1.01
 # Developer:    Aeric Poon
 # License:      Donationware
 # Paypal:       https://paypal.me/aeric80/
@@ -56,10 +56,10 @@ SSLPort=0
 
 ## SQLite configuration:
 DbType=SQLite
-DbName=users.db
+DbFile=users.db
 #DbDir=C:/B4X/Development/User Login Server/Objects
 DriverClass=org.sqlite.JDBC
-JdbcUrl=jdbc:sqlite:{DbDir}/{DbName}
+JdbcUrl=jdbc:sqlite:{DbDir}/{DbFile}
 
 ## MySQL configuration:
 #DbType=MySQL

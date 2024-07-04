@@ -1,5 +1,5 @@
 ﻿AppType=StandardJava
-Build1=Default,b4j.login.server,SQLite,hu2_acceptall
+Build1=Default,b4j.login.server,SQLite,server,hu2_acceptall
 Build2=MySQL,b4j.webapi,MySQL,server,hu2_acceptall
 File1=config.example
 File2=index.html
@@ -14,8 +14,8 @@ Library3=jcore
 Library4=jdateutils
 Library5=jnet
 Library6=jstringutils
-Library7=miniormutils
-Library8=webapiutils
+Library7=webapiutils
+Library8=miniormutils
 Module1=ApiHandler
 Module2=CorsFilter
 Module3=DatabaseConfiguration
@@ -31,7 +31,7 @@ NumberOfModules=9
 Version=10
 @EndOfDesignText@
 ' Product: 			User Login Server (based on Web API Server Template v2.07)
-' Version: 			1.00
+' Version: 			1.01 (require MiniORMUtils v1.13)
 ' Description: 		Server application project template
 ' Developer:		Aeric Poon (https://www.b4x.com/android/forum/members/aeric.74499/)
 ' License:			Open Source
@@ -60,16 +60,18 @@ Sub Process_Globals
 	Public Controllers 				As List
 	Public SimpleResponse 			As SimpleResponse
 	Public DBConnector				As DatabaseConnector
-	Public ACTIVATION_REQUIRED		As Boolean
+	Public ACTIVATION_REQUIRED		As Boolean = False
+	Public NOTIFICATION_ENABLED		As Boolean = False
+	Public CONFIRMATION_REQUIRED	As Boolean = False
 	Public PRINT_FULL_REQUEST_URL	As Boolean
 	Public SHOW_API_ICON			As Boolean
 	Public SESSIONS_ENABLED 		As Boolean
 	Public COOKIES_ENABLED 			As Boolean
 	Public COOKIES_EXPIRATION 		As Long
-	Public Const VERSION 			As String = "1.00"
+	Public Const VERSION 			As String = "1.01"
 End Sub
 
-' <link>Open in browser|http://localhost:17178/web</link>
+' <link>Open in browser|http://localhost:17178/web/help</link>
 Sub AppStart (Args() As String)
 	Config.Initialize
 	Server.Initialize("")
@@ -80,20 +82,18 @@ Sub AppStart (Args() As String)
 	sc.EnableCORS = True
 	sc.EnableHelp = True
 	sc.Finalize
+	sc.ShowWelcomeText
 	
 	Dim dc As DatabaseConfiguration
 	dc.Initialize
 	dc.ConfigureDatabase
-	
 	Server.Start
 	
-	sc.ShowWelcomeText
-	
 	' Show Controllers in Documentation
-	Controllers.Initialize
-	Controllers.Add("UsersController")
-	
-	PRINT_FULL_REQUEST_URL = True
+	If sc.EnableHelp Then
+		Controllers.Initialize
+		Controllers.Add("UsersController")
+	End If
 	StartMessageLoop
 End Sub
 

@@ -12,11 +12,12 @@ End Sub
 
 Public Sub Initialize
 	Conn.Initialize
+	Conn.DBDir = Main.Config.GetDefault("DbDir", "")
+	Conn.DBFile = Main.Config.GetDefault("DbFile", "")
 	Conn.DBType = Main.Config.GetDefault("DbType", "")
-	Conn.DBName = Main.Config.GetDefault("DbName", "")
 	Conn.DBHost = Main.Config.GetDefault("DbHost", "")
 	Conn.DBPort = Main.Config.GetDefault("DbPort", "")
-	Conn.DBDir = Main.Config.GetDefault("DbDir", "")
+	Conn.DBName = Main.Config.GetDefault("DbName", "")
 	Conn.DriverClass = Main.Config.GetDefault("DriverClass", "")
 	Conn.JdbcUrl = Main.Config.GetDefault("JdbcUrl", "")
 	Conn.User = Main.Config.GetDefault("User", "")
@@ -27,12 +28,11 @@ End Sub
 ' Configure Database (create if not exist)
 Public Sub ConfigureDatabase
 	Try
-		'Log("Checking database...")
 		Select Conn.DBType.ToUpperCase
 			Case "SQLITE"
 				#If SQLite
 				Dim DBFound As Boolean
-				If File.Exists(Conn.DBDir, Conn.DBName) Then
+				If File.Exists(Conn.DBDir, Conn.DBFile) Then
 					DBFound = True
 				End If
 				Main.DBConnector.Initialize(Conn)
@@ -74,7 +74,7 @@ Private Sub CreateDatabase
 	Log("Creating database...")
 	Select Conn.DBType.ToUpperCase
 		Case "SQLITE"
-			Wait For (Main.DBConnector.DBCreate) Complete (Success As Boolean)
+			Wait For (Main.DBConnector.DBCreateSQLite) Complete (Success As Boolean)
 		Case "MYSQL"
 			Wait For (Main.DBConnector.DBCreateMySQL) Complete (Success As Boolean)
 	End Select
@@ -87,8 +87,16 @@ Private Sub CreateDatabase
 	Dim MDB As MiniORM
 	MDB.Initialize(Main.DBOpen, Main.DBEngine)
 	MDB.UseTimestamps = True
+	MDB.AddAfterCreate = True
+	'MDB.ShowExtraLogs = True
 	
 	MDB.Table = "tbl_users"
+	Select Main.DBEngine.ToUpperCase
+		Case "MYSQL"
+			MDB.Columns.Add(MDB.CreateORMColumn2(CreateMap("Name": "user_id", "Type": MDB.INTEGER, "Nullable": False, "AutoIncrement": True)))
+		Case "SQLITE"
+			MDB.Columns.Add(MDB.CreateORMColumn2(CreateMap("Name": "user_id", "Type": MDB.INTEGER)))
+	End Select	
 	MDB.Columns.Add(MDB.CreateORMColumn2(CreateMap("Name": "user_email")))
 	MDB.Columns.Add(MDB.CreateORMColumn2(CreateMap("Name": "user_hash")))
 	MDB.Columns.Add(MDB.CreateORMColumn2(CreateMap("Name": "user_salt")))
@@ -104,18 +112,16 @@ Private Sub CreateDatabase
 	MDB.Columns.Add(MDB.CreateORMColumn2(CreateMap("Name": "user_last_login", "Size": 30)))
 	MDB.Columns.Add(MDB.CreateORMColumn2(CreateMap("Name": "user_login_count", "Type": MDB.INTEGER, "Default": 0)))
 	MDB.Columns.Add(MDB.CreateORMColumn2(CreateMap("Name": "user_active", "Type": MDB.INTEGER, "Default": 0)))
-	' Workaround for limitation in MiniORM v1.12 
-	MDB.AddAfterCreate = False
+	MDB.Primary(Array As String("user_id"))	' custom primary key
+	MDB.DisableAutoIncrementId = True
 	MDB.Create
-	MDB.RawSQL = MDB.ToString.Replace("id", "user_id") ' custom primary key
-	MDB.AddQuery
+	MDB.DisableAutoIncrementId = False ' reset to allow autoincrement id for the rest of tables
 
 	MDB.Table = "tbl_users_log"
 	MDB.Columns.Add(MDB.CreateORMColumn2(CreateMap("Name": "log_view", "Size": 30)))
 	MDB.Columns.Add(MDB.CreateORMColumn2(CreateMap("Name": "log_type", "Size": 30)))
 	MDB.Columns.Add(MDB.CreateORMColumn2(CreateMap("Name": "log_text", "Size": 1000)))
 	MDB.Columns.Add(MDB.CreateORMColumn2(CreateMap("Name": "log_user", "Type": MDB.INTEGER)))
-	MDB.AddAfterCreate = True
 	MDB.Create
 
 	MDB.Table = "tbl_error"

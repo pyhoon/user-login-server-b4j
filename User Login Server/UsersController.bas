@@ -63,7 +63,6 @@ Public Sub RouteApi
 	End Select
 End Sub
 
-' Snippet: Code_WebApiUtils_03 GET Route
 Private Sub RouteGet
 	Select Version
 		Case "v1"
@@ -71,13 +70,16 @@ Private Sub RouteGet
 				Case FirstIndex
 					Select FirstElement
 						Case "list"
-							GetUserShowList
+							GetShowUserList
 							Return
 					End Select
 				Case SecondIndex
 					Select FirstElement
 						Case "activate"
-							GetUserActivate(SecondElement)
+							GetActivateUser(SecondElement)
+							Return
+						Case "confirm-reset"
+							GetConfirmResetPassword(SecondElement)
 							Return
 					End Select
 			End Select
@@ -91,11 +93,8 @@ Private Sub RoutePost
 			Select ElementLastIndex
 				Case FirstIndex
 					Select FirstElement
-						Case "connect"
-							WebApiUtils.ReturnConnect(Response)
-							Return
 						Case "register"
-							PostUserRegister
+							PostRegisterUser
 							Return
 						Case "login"
 							PostUserLogin
@@ -104,7 +103,10 @@ Private Sub RoutePost
 							PostUserToken
 							Return
 						Case "profile"
-							PostUserReadProfile
+							PostReadUserProfile
+							Return
+						Case "reset-password"
+							PostResetUserPassword
 							Return
 					End Select
 			End Select
@@ -120,6 +122,9 @@ Private Sub RoutePut
 					Select FirstElement
 						Case "update"
 							PutUpdateUserProfile
+							Return
+						Case "change-password"
+							PutChangeUserPassword
 							Return
 					End Select
 			End Select
@@ -140,10 +145,6 @@ Private Sub ReturnMethodNotAllow
 	WebApiUtils.ReturnMethodNotAllow(Response)
 End Sub
 
-'Private Sub ReturnErrorUnprocessableEntity 'ignore
-'	WebApiUtils.ReturnErrorUnprocessableEntity(Response)
-'End Sub
-
 Private Sub ReMapKey (map As Map, key1 As String, key2 As String)
 	If map.ContainsKey(key1) Then
 		map.Put(key2, map.Get(key1))
@@ -151,47 +152,29 @@ Private Sub ReMapKey (map As Map, key1 As String, key2 As String)
 	End If
 End Sub
 
-' Workaround for limitation in MiniORM v1.12
-Sub CurrentDateTime As String
+Sub CurrentTimeStamp As String
 	Select Main.DBEngine.ToUpperCase
 		Case "MYSQL"
-			DB.RawSQL = "SELECT now()"
-			Return DB.Scalar
+			Return "NOW()"
 		Case "SQLITE"
-			DB.RawSQL = "SELECT datetime('now')"
-			Return DB.Scalar
+			Return "datetime('Now')"
 		Case Else
-			Dim CurrentDateFormat As String = DateTime.DateFormat
-			DateTime.DateFormat = "yyyy-MM-dd HH:mm:ss"
-			Dim Now As String = DateTime.Date(DateTime.Now)
-			DateTime.DateFormat = CurrentDateFormat
-			Return Now
+			Return ""
 	End Select
 End Sub
 
-' Workaround for limitation in MiniORM v1.12
-Sub TokenExpiry As String
+Sub CurrentTimeStampAddMinute (Value As Int) As String
 	Select Main.DBEngine.ToUpperCase
 		Case "MYSQL"
-			DB.RawSQL = "SELECT DATE_ADD(now(), INTERVAL 10 MINUTE)"
-			Return DB.Scalar
-		Case "SQLITE"		
-			DB.RawSQL = "SELECT datetime('now', '+10 minute')"
-			Return DB.Scalar
+			Return $"DATE_ADD(NOW(), INTERVAL ${Value} MINUTE)"$
+		Case "SQLITE"
+			Return $"datetime('Now', '+${Value} minute')"$
 		Case Else
-			Dim CurrentDateFormat As String = DateTime.DateFormat
-			DateTime.DateFormat = "yyyy-MM-dd HH:mm:ss"
-			Dim Per As Period
-			Per.Initialize
-			Per.Minutes = 10
-			Dim Exp As Long = DateUtils.AddPeriod(DateTime.Now, Per)
-			Dim Expiry As String = DateTime.Date(Exp)
-			DateTime.DateFormat = CurrentDateFormat
-			Return Expiry
+			Return ""
 	End Select
 End Sub
 
-Sub SendEmail (NewEmail As EmailData) 'ignore
+Sub SendEmail (NewEmail As EmailData)
 	Try
 		Dim ROOT_URL As String = Main.Config.GetDefault("ROOT_URL", "http://localhost:17178")
 		Dim ROOT_PATH As String = Main.Config.GetDefault("ROOT_PATH", "web")
@@ -213,18 +196,18 @@ Sub SendEmail (NewEmail As EmailData) 'ignore
 		End Select
 		
 		Select NewEmail.Action
-			Case "register"
+			Case "send activation code"
 				EmailSubject = APP_TRADEMARK
 				EmailBody = $"Hi ${NewEmail.RecipientName},<br />
 				Please click on this link to finish the registration process:<br />
-				<a href="${ROOT_URL}/${ROOT_PATH}/users/activate/${NewEmail.ActivateCode}" 
-				id="user-activation-link" title="activate" target="_blank">${ROOT_URL}/${ROOT_PATH}/users/activate/${NewEmail.ActivateCode}</a><br />
+				<a href="${ROOT_URL}/${ROOT_PATH}/users/activate/${NewEmail.ActivateCode}" id="user-activation-link" title="activate"
+				target="_blank">${ROOT_URL}/${ROOT_PATH}/users/activate/${NewEmail.ActivateCode}</a><br />
 				<br />
 				If the link is not working, please copy the url to your browser.<br />
 				<br />
 				Regards,<br />
 				<em>${APP_TRADEMARK}</em>"$					
-			Case "change"
+			Case "send change password notification"
 				EmailSubject = "Your password has been changed"
 				EmailBody = $"Hi ${NewEmail.RecipientName},<br />
 				We have noticed that you have changed your password recently.<br />
@@ -234,7 +217,7 @@ Sub SendEmail (NewEmail As EmailData) 'ignore
 				<br />
 				Regards,<br />
 				<em>${APP_TRADEMARK}</em>"$							
-			Case "forgot"
+			Case "send reset code"
 				EmailSubject = "Request to reset your password"
 				EmailBody = $"Hi ${NewEmail.RecipientName},<br />
 				We have received a request from you to reset your password.<br />
@@ -242,14 +225,15 @@ Sub SendEmail (NewEmail As EmailData) 'ignore
 				If this action is not initiated by you, please contact us immediately.<br />
 				Otherwise, click the following link to confirm:<br />
 				<br />
-				<a href="${Main.Config.Get("ROOT_URL")}${Main.Config.Get("ROOT_PATH")}client/confirm-reset-password/${NewEmail.ResetCode}" id="reset-link" title="reset" target="_blank">${Main.Config.Get("ROOT_URL")}${Main.Config.Get("ROOT_PATH")}client/confirm-reset-password/${NewEmail.ResetCode}</a><br />
+				<a href="${ROOT_URL}${ROOT_PATH}client/confirm-reset-password/${NewEmail.ResetCode}" id="reset-link" title="reset"
+				target="_blank">${ROOT_URL}${ROOT_PATH}client/confirm-reset-password/${NewEmail.ResetCode}</a><br />
 				<br />
 				If the link is not working, please copy the url to your browser.<br />
 				If you have changed your mind, just ignore this email.<br />				
 				<br />
 				Regards,<br />
 				<em>${APP_TRADEMARK}</em>"$
-			Case "reset"
+			Case "send temp password"
 				EmailSubject = "Your password has been reset"
 				EmailBody = $"Hi ${NewEmail.RecipientName},<br />
 				Your password has been reset.<br />
@@ -264,11 +248,10 @@ Sub SendEmail (NewEmail As EmailData) 'ignore
 				Log("Wrong parameter")
 				Return
 		End Select
-		
-		'Log(EmailBody)
+
 		Dim smtp As SMTP
 		smtp.Initialize(SMTP_SERVER, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, "SMTP")
-		If SMTP_USESSL.ToUpperCase = "TRUE" Then smtp.UseSSL = True Else smtp.UseSSL = False
+		smtp.UseSSL = IIf(SMTP_USESSL.EqualsIgnoreCase("True"), True, False)
 		smtp.Sender = SMTP_USERNAME
 		smtp.To.Add(NewEmail.RecipientEmail)
 		smtp.AuthMethod = smtp.AUTH_LOGIN
@@ -289,34 +272,7 @@ Sub SendEmail (NewEmail As EmailData) 'ignore
 	End Try
 End Sub
 
-Public Sub CreateEmailData (RecipientName As String, RecipientEmail As String, Action As String, ActivateCode As String, ResetCode As String, TempPassword As String) As EmailData
-	Dim t1 As EmailData
-	t1.Initialize
-	t1.RecipientName = RecipientName
-	t1.RecipientEmail = RecipientEmail
-	t1.Action = Action
-	t1.ActivateCode = ActivateCode
-	t1.ResetCode = ResetCode
-	t1.TempPassword = TempPassword
-	Return t1
-End Sub
-
-Public Sub CreateUserData (UserName As String, UserEmail As String, UserPassword As String, UserFlag As String, UserApiKey As String, UserToken As String, UserTokenExpiry As String, UserActive As Int) As UserData
-	Dim t1 As UserData
-	t1.Initialize
-	t1.UserName = UserName
-	t1.UserEmail = UserEmail
-	t1.UserPassword = UserPassword
-	t1.UserFlag = UserFlag
-	t1.UserApiKey = UserApiKey
-	t1.UserToken = UserToken
-	t1.UserTokenExpiry = UserTokenExpiry
-	t1.UserActive = UserActive
-	Return t1
-End Sub
-
 Private Sub FindUserByAccessToken (Token As String) As UserData
-	Dim TokenUser As UserData
 	DB.Table = "tbl_users"
 	DB.Where = Array("user_token = ?")
 	DB.Parameters = Array(Token)
@@ -324,64 +280,89 @@ Private Sub FindUserByAccessToken (Token As String) As UserData
 	
 	If DB.Found Then
 		Dim user As Map = DB.First
+		Dim TokenUser As UserData
 		TokenUser.Initialize
-		TokenUser.UserName = user.Get("user_name")
+		'TokenUser.UserName = user.Get("user_name")
 		TokenUser.UserEmail = user.Get("user_email")
-		TokenUser.UserActive = user.Get("user_active")
-		TokenUser.UserFlag = user.Get("user_activation_flag")
+		'TokenUser.UserActive = user.Get("user_active")
+		'TokenUser.UserFlag = user.Get("user_activation_flag")
+		TokenUser.UserToken = user.Get("user_token")
 		TokenUser.UserTokenExpiry = user.Get("user_token_expiry")
-		
-		' Update last login
-		UpdateLastLogin(Token)
 	End If
+	DB.Close
 	Return TokenUser
 End Sub
 
-Private Sub UpdateLastLogin (Token As String)
-	' Workaround for limitation in MiniORM v1.12
-	Select Main.DBEngine.ToUpperCase
-		Case "MYSQL"
-			DB.RawSQL = $"UPDATE tbl_users SET
-			user_last_login = now(),
-			user_login_count = user_login_count + 1
-			WHERE user_token = ?"$
-		Case "SQLITE"
-			DB.RawSQL = $"UPDATE tbl_users SET
-			user_last_login = datetime('now'),
-			user_login_count = user_login_count + 1
-			WHERE user_token = ?"$
-	End Select
-	DB.Parameters = Array(Token)
-	DB.Execute
+Private Sub ValidateToken (Token As UserData) As Boolean
+	Try
+		If Token.IsInitialized = False Then
+			HRM.ResponseCode = 401
+			HRM.ResponseError = "Undefine User Token"
+			ReturnApiResponse
+			Return False
+		End If
+		
+		If Token.UserToken = "" Then
+			HRM.ResponseCode = 401
+			HRM.ResponseError = "Invalid User Token"
+			ReturnApiResponse
+			Return False
+		End If
+		
+		Dim CurrentDateFormat As String = DateTime.DateFormat
+		DateTime.DateFormat = "yyyy-MM-dd"
+		DateTime.TimeFormat = "HH:mm:ss"
+		Dim date1() As String = Regex.Split(" ", Main.DBConnector.GetDateTime)
+		Dim date2() As String = Regex.Split(" ", Token.UserTokenExpiry)
+		Dim DateNow As String = date1(0)
+		Dim TimeNow As String = date1(1)
+		Dim DateExp As String = date2(0)
+		Dim TimeExp As String = date2(1)
+		Dim DateTime1 As Long = DateTime.DateTimeParse(DateNow, TimeNow)
+		Dim DateTime2 As Long = DateTime.DateTimeParse(DateExp, TimeExp)
+		DateTime.DateFormat = CurrentDateFormat
+	Catch
+		Log(LastException)
+		HRM.ResponseCode = 401
+		HRM.ResponseError = "Invalid User Token"
+		ReturnApiResponse
+		Return False
+	End Try
+
+	If DateTime1 > DateTime2 Then
+		HRM.ResponseCode = 401
+		HRM.ResponseError = "User Token Expired"
+		ReturnApiResponse
+		Return False
+	End If
+	Return True
 End Sub
 
-Private Sub GetUserShowList
+Private Sub GetShowUserList
 	' #Version = v1
 	' #Desc = Show list of all Users
 	' #Elements = ["list"]
 	
+	Log($"${Request.Method}: ${Request.RequestURI}"$)
 	Dim access_token As String = WebApiUtils.RequestBearerToken(Request)
-	'Log("token:" & access_token)
 	Dim user As UserData = FindUserByAccessToken(access_token)
-	If Not(user.IsInitialized) Then
-		HRM.ResponseCode = 401
-		HRM.ResponseError = "Invalid User Token"
-		ReturnApiResponse
+	If ValidateToken(user) = False Then
 		Return
 	End If
-
+	
 	Select Main.DBEngine.ToUpperCase
 		Case "MYSQL"
-			Dim online As String = "CASE WHEN (TIME_TO_SEC(TIMEDIFF(now(), user_last_login)) < 600) THEN 'Y' ELSE 'N' END AS online, TIME_TO_SEC(TIMEDIFF(now(), user_last_login)) AS last_online"
+			Dim online As String = $"CASE WHEN (TIME_TO_SEC(TIMEDIFF(now(), user_last_login)) < 600)
+			THEN 'Y' ELSE 'N' END AS online,
+			TIME_TO_SEC(TIMEDIFF(now(), user_last_login)) AS last_online"$
 		Case "SQLITE"
-			Dim online As String = "CASE WHEN (((strftime('%s', 'now') - strftime('%s', user_last_login)) / 60) < 10) THEN 'Y' ELSE 'N' END AS online, (strftime('%s', 'now') - strftime('%s', user_last_login)) AS last_online"
+			Dim online As String = $"CASE WHEN (((strftime('%s', 'now') - strftime('%s', user_last_login)) / 60) < 10)
+			THEN 'Y' ELSE 'N' END AS online,
+			(strftime('%s', 'now') - strftime('%s', user_last_login)) AS last_online"$
 	End Select
-	
-    DB.Table = "tbl_users"
-	DB.Select = Array("user_name", _
-	"user_email", _
-	"user_last_login", _
-	online)
+
+	DB.Reset
+	DB.Select = Array("user_email AS email", "user_name AS name", online)
     DB.Query
 	
     HRM.ResponseCode = 200
@@ -390,7 +371,7 @@ Private Sub GetUserShowList
 	ReturnApiResponse
 End Sub
 
-Private Sub GetUserActivate (ActivationCode As String)
+Private Sub GetActivateUser (ActivationCode As String)
 	' #Version = v1
 	' #Desc = Activate User by Code
 	' #Elements = ["activate", ":code"]
@@ -408,11 +389,16 @@ Private Sub GetUserActivate (ActivationCode As String)
 		DB.Reset
 		DB.Columns = Array("user_api_key", "user_activation_code", "user_activation_flag", "user_active", "user_activated_date")
 		DB.Where = Array("user_activation_code = ?")
-		DB.Parameters = Array(api_key, new_code, "A", 1, CurrentDateTime, ActivationCode)
+		DB.Parameters = Array(api_key, new_code, "A", 1, Main.DBConnector.GetDateTime, ActivationCode)
 		DB.Save
 		
+		Dim user1 As Map = DB.First
+		Dim user2 As Map = CreateMap("email": user1.Get("user_email"), _
+		"activated_date": user1.Get("user_activated_date"))
+
 		HRM.ResponseCode = 200
-		HRM.ResponseObject = DB.SelectOnly(Array("user_email", "user_activated_date"))
+		HRM.ResponseObject = user2
+		HRM.ResponseMessage = "User activated successfully"
 	Else
 		HRM.ResponseCode = 404
 		HRM.ResponseError = "User not found"
@@ -421,7 +407,61 @@ Private Sub GetUserActivate (ActivationCode As String)
 	ReturnApiResponse
 End Sub
 
-Private Sub PostUserRegister
+Private Sub GetConfirmResetPassword (ResetCode As String)
+	' #Version = v1
+	' #Desc = Confirm reset User password by Reset Code
+	' #Elements = ["confirm-reset", ":code"]
+	
+	DB.Table = "tbl_users"
+	DB.Select = Array("user_email", "user_hash", "user_salt", "user_activation_code")
+	DB.Where = Array("user_activation_code = ?")
+	DB.Parameters = Array(ResetCode)
+	DB.Query
+	
+	If DB.Found Then
+		Dim salt As String = Main.MD5(Rnd(100001, 999999))
+		Dim temp As String = Main.MD5(Rnd(100001, 999999))
+		temp = temp.SubString(temp.Length - 8) ' get last 8 letters
+		Dim hash As String = Main.MD5(temp & salt)	' random password
+		Dim code As String = Main.MD5(Rnd(100001, 999999))
+		Dim apikey As String = Main.SHA1(hash)
+		Dim token As String = Main.SHA1(Rnd(100001, 999999))
+
+		DB.Reset
+		DB.Columns = Array("user_hash", "user_salt", "user_apikey", "user_token", "user_activation_code")
+		DB.Where = Array("user_activation_code = ?")
+		DB.Parameters = Array(hash, salt, apikey, token, code, ResetCode)
+		DB.Save
+
+		Dim user1 As Map = DB.First
+		If Main.CONFIRMATION_REQUIRED Then
+			Dim ResetPasswordEmail As EmailData
+			ResetPasswordEmail.Initialize
+			ResetPasswordEmail.RecipientName = user1.Get("user_name")
+			ResetPasswordEmail.RecipientEmail = user1.Get("user_email")
+			ResetPasswordEmail.Action = "send temp password"
+			ResetPasswordEmail.TempPassword = temp
+			SendEmail(ResetPasswordEmail)
+		End If
+		
+		Dim user2 As Map = CreateMap("email": user1.Get("user_email"), _
+		"api_key": user1.Get("user_api_key"), _
+		"token": user1.Get("user_token"), _
+		"token_expiry": user1.Get("user_token_expiry"), _
+		"modified_date": user1.Get("modified_date"))
+
+		HRM.ResponseCode = 200
+		HRM.ResponseObject = user2
+		HRM.ResponseMessage = "Password updated successfully"
+	Else
+		HRM.ResponseCode = 404
+		HRM.ResponseError = "User not found"
+	End If
+	DB.Close
+	ReturnApiResponse
+End Sub
+
+Private Sub PostRegisterUser
 	' #Version = v1
 	' #Desc = Register a New User
 	' #Body = {<br>&nbsp; "name": "name",<br>&nbsp; "email": "email",<br>&nbsp; "password": "password"<br>}
@@ -519,18 +559,30 @@ Private Sub PostUserRegister
 	DB.Parameters = Array(NewID)
 	DB.Query
 
-	' If activation required and email configured
+	Dim user1 As Map = DB.First
 	Dim msg_text As String = $"New user registered (${user_email})"$
-	Main.WriteUserLog("user/register", "success", msg_text, DB.First.Get("user_id"))
+	Main.WriteUserLog("user/register", "success", msg_text, user1.Get("user_id"))
 	
+	' If activation required and email configured
 	If Main.ACTIVATION_REQUIRED Then
-		Dim NewUserEmail As EmailData = CreateEmailData(user_name, user_email, "register", activation_code, "", "")
+		Dim NewUserEmail As EmailData
+		NewUserEmail.Initialize
+		NewUserEmail.RecipientName = user_name
+		NewUserEmail.RecipientEmail = user_email
+		NewUserEmail.Action = "send activation code"
+		NewUserEmail.ActivateCode = activation_code
 		SendEmail(NewUserEmail)
 	End If
 	
 	' Return new user
+	Dim user2 As Map = CreateMap("email": user1.Get("user_email"), _
+	"name": user1.Get("user_name"), _
+	"location": user1.Get("user_location"), _
+	"user_activation_flag": user1.Get("user_activation_flag"), _
+	"created_date": user1.Get("created_date"))
+
 	HRM.ResponseCode = 201
-	HRM.ResponseObject = DB.SelectOnly(Array("user_name", "user_email", "user_location", "user_activation_flag", "created_date"))
+	HRM.ResponseObject = user2
 	HRM.ResponseMessage = "User created successfully"
 	DB.Close
 	ReturnApiResponse
@@ -542,6 +594,7 @@ Private Sub PostUserLogin
 	' #Body = {<br>&nbsp;"email": "user_email",<br>&nbsp;"password": "user_password"<br>}
 	' #Elements = ["login"]
 	
+	Log($"${Request.Method}: ${Request.RequestURI}"$)
 	Dim data As Map = WebApiUtils.RequestData(Request)
 	If Not(data.IsInitialized) Then
 		HRM.ResponseCode = 400
@@ -576,9 +629,9 @@ Private Sub PostUserLogin
 
 	' Check user exist
 	DB.Table = "tbl_users"
-	DB.Select = Array("user_id AS 'id'", _
+	DB.Select = Array("user_email AS 'email'", _
 	"user_name AS 'name'", _
-	"user_email AS 'email'", _
+	"user_location AS 'location'", _
 	"ifnull(user_api_key, '') AS 'api_key'", _
 	"user_activation_flag AS 'flag'")
 	DB.Where = Array("user_email = ?", "user_hash = ?")
@@ -587,33 +640,41 @@ Private Sub PostUserLogin
 	
 	If DB.Found = False Then
 		HRM.ResponseCode = 404
-		HRM.ResponseError = "User not exist"
+		HRM.ResponseError = "Password is incorrect"
 		DB.Close
 		ReturnApiResponse
 		Return
 	End If
-
-	If DB.First.Get("flag") = "R" Then
+	
+	Dim user1 As Map = DB.First
+	If user1.Get("flag") = "R" Then
 		HRM.ResponseCode = 400
 		HRM.ResponseError = "Email Not Activated"
 		DB.Close
 		ReturnApiResponse
 		Return
 	End If
+
+	Dim user2 As Map = CreateMap("email": user1.Get("email"), _
+	"name": user1.Get("name"), _
+	"location": user1.Get("location"), _
+	"api_key": user1.Get("api_key"))
 	
 	' Retrieve updated row
 	HRM.ResponseCode = 200
-	HRM.ResponseObject = DB.SelectOnly(Array("name", "email", "location", "api_key"))
-	HRM.ResponseMessage = "User login successfully"
+	HRM.ResponseObject = user2
+	HRM.ResponseMessage = "Api key retrieved successfully"
 	DB.Close
 	ReturnApiResponse
 End Sub
 
-Private Sub PostUserToken '(apikey As String)
+Private Sub PostUserToken
 	' #Version = v1
-	' #Desc = Get User token by Api Key
-	' #Elements = ["token", ":apikey"]
-
+	' #Desc = Get User token
+	' #Body = {<br>&nbsp;"email": "user_email",<br>&nbsp;"apikey": "api_key"<br>}
+	' #Elements = ["token"]
+	
+	Log($"${Request.Method}: ${Request.RequestURI}"$)
 	Dim data As Map = WebApiUtils.RequestData(Request)
 	If Not(data.IsInitialized) Then
 		HRM.ResponseCode = 400
@@ -639,24 +700,30 @@ Private Sub PostUserToken '(apikey As String)
 	Dim user_email As String = data.Get("user_email")
 	Dim api_key As String = data.Get("user_api_key")
 
-	' Update user token
-	Dim user_token As String = Main.SHA1(Rnd(100001, 999999))
-	Dim token_expiry As String = TokenExpiry
 	DB.Table = "tbl_users"
-	DB.Columns = Array("user_token", "user_token_expiry")
-	DB.Where = Array("user_email = ?", "user_api_key = ?")
-	DB.Parameters = Array(user_token, token_expiry, user_email, api_key)
-	DB.Save
-	
-	DB.Table = "tbl_users"
-	DB.Select = Array("user_email", "user_token")
 	DB.Where = Array("user_email = ?", "user_api_key = ?")
 	DB.Parameters = Array(user_email, api_key)
 	DB.Query
 	
 	If DB.Found Then
+		' Update user token
+		Dim token As String = Main.SHA1(Rnd(100001, 999999))
+		DB.Reset
+		DB.Columns = Array("user_token", _
+		"user_token_expiry = " & CurrentTimeStampAddMinute(10), _
+		"user_last_login = " & CurrentTimeStamp, _
+		"user_login_count++")
+		DB.Where = Array("user_email = ?", "user_api_key = ?")
+		DB.Parameters = Array(token, user_email, api_key)
+		DB.Save
+		
+		Dim user1 As Map = DB.First
+		Dim user2 As Map = CreateMap("email": user1.Get("user_email"), _
+		"token": user1.Get("user_token"), _
+		"token_expiry": user1.Get("user_token_expiry"))
+
 		HRM.ResponseCode = 200
-		HRM.ResponseObject = DB.First
+		HRM.ResponseObject = user2
 	Else
 		HRM.ResponseCode = 400
 		HRM.ResponseError = "Invalid Api Key"
@@ -665,18 +732,15 @@ Private Sub PostUserToken '(apikey As String)
 	ReturnApiResponse
 End Sub
 
-Private Sub PostUserReadProfile
+Private Sub PostReadUserProfile
 	' #Version = v1
-	' #Desc = Read a User profile by email
+	' #Desc = Read a User profile
 	' #Body = {<br>&nbsp;"email": "user_email"<br>}
-	' #Elements = ["profile", ":email"]
+	' #Elements = ["profile"]
 
 	Dim access_token As String = WebApiUtils.RequestBearerToken(Request)
 	Dim user As UserData = FindUserByAccessToken(access_token)
-	If Not(user.IsInitialized) Then
-		HRM.ResponseCode = 401
-		HRM.ResponseError = "Invalid User Token"
-		ReturnApiResponse
+	If ValidateToken(user) = False Then
 		Return
 	End If
 
@@ -694,14 +758,19 @@ Private Sub PostUserReadProfile
 	
 	Select Main.DBEngine.ToUpperCase
 		Case "MYSQL"
-			Dim online As String = "CASE WHEN (TIME_TO_SEC(TIMEDIFF(now(), user_last_login)) < 600) THEN 'Y' ELSE 'N' END AS online, now() - user_last_login AS last_online"
+			Dim online As String = $"CASE WHEN (TIME_TO_SEC(TIMEDIFF(now(), user_last_login)) < 600)
+			THEN 'Y' ELSE 'N' END AS online,
+			now() - user_last_login AS last_online"$
 		Case "SQLITE"
-			Dim online As String = "CASE WHEN (((strftime('%s', 'now') - strftime('%s', user_last_login)) / 60) < 10) THEN 'Y' ELSE 'N' END AS online, (strftime('%s', 'now') - strftime('%s', user_last_login)) AS last_online"
+			Dim online As String = $"CASE WHEN (((strftime('%s', 'now') - strftime('%s', user_last_login)) / 60) < 10)
+			THEN 'Y' ELSE 'N' END AS online,
+			(strftime('%s', 'now') - strftime('%s', user_last_login)) AS last_online"$
 	End Select
 	
 	DB.Table = "tbl_users"
 	DB.Select = Array("user_name", _
 	"user_email", _
+	"user_location", _
 	"user_last_login", _
 	online)
 	DB.Where = Array("user_email = ?")
@@ -709,11 +778,98 @@ Private Sub PostUserReadProfile
 	DB.Query
 	
 	If DB.Found Then
+		Dim user1 As Map = DB.First
+		Dim user2 As Map = CreateMap("email": user1.Get("user_email"), _
+		"name": user1.Get("user_name"), _
+		"location": user1.Get("user_location"), _
+		"last_login": user1.Get("user_last_login"), _
+		"online": user1.Get("online"), _
+		"last_online": user1.Get("last_online"))
+
 		HRM.ResponseCode = 200
-		HRM.ResponseObject = DB.SelectOnly(Array("user_name", "user_email", "user_last_login", "online", "last_online"))
+		HRM.ResponseObject = user2
 	Else
 		HRM.ResponseCode = 404
 		HRM.ResponseError = "User Not Found"
+	End If
+	DB.Close
+	ReturnApiResponse
+End Sub
+
+Private Sub PostResetUserPassword
+	' #Version = v1
+	' #Desc = Reset User password
+	' #Body = {<br>&nbsp;"email": "user_email"<br>}
+	' #Elements = ["reset-password"]
+
+	Dim data As Map = WebApiUtils.RequestData(Request)
+	If Not(data.IsInitialized) Then
+		HRM.ResponseCode = 400
+		HRM.ResponseError = "Invalid json object"
+		ReturnApiResponse
+		Return
+	End If
+
+	' Check whether required keys are provided
+	Dim RequiredKeys As List = Array As String("email")
+	For Each requiredkey As String In RequiredKeys
+		If Not(data.ContainsKey(requiredkey)) Then
+			HRM.ResponseCode = 400
+			HRM.ResponseError = $"'${requiredkey}' key not found"$
+			ReturnApiResponse
+			Return
+		End If
+	Next
+
+	' Remap keys to table column names
+	ReMapKey(data, "email", "user_email")
+	Dim user_email As String = data.Get("user_email")
+	
+	DB.Table = "tbl_users"
+	DB.Where = Array("user_email = ?")
+	DB.Parameters = Array(user_email)
+	DB.Query
+	If DB.Found Then
+		Dim user1 As Map = DB.First
+		If Main.CONFIRMATION_REQUIRED Then
+			' Update activation code column with reset code
+			Dim resetcode As String = Main.MD5(Rnd(100001, 999999))
+			DB.Reset
+			DB.Columns = Array("user_activation_code")
+			DB.Where = Array("user_email = ?")
+			DB.Parameters = Array(resetcode, user_email)
+			DB.Save
+		
+			Dim ResetPasswordEmail As EmailData
+			ResetPasswordEmail.Initialize
+			ResetPasswordEmail.RecipientName = user1.Get("user_name")
+			ResetPasswordEmail.RecipientEmail = user1.Get("user_email")
+			ResetPasswordEmail.Action = "send reset code"
+			ResetPasswordEmail.ResetCode = resetcode
+			SendEmail(ResetPasswordEmail)
+		Else
+			' if email confirmation not required
+			' Update user api key and token
+			Dim salt As String = Main.MD5(Rnd(100001, 999999))
+			Dim hash As String = Main.MD5("password" & salt) ' default password
+			Dim apikey As String = Main.SHA1(hash)
+			Dim token As String = Main.SHA1(Rnd(100001, 999999))
+			
+			DB.Reset
+			DB.Columns = Array("user_hash", "user_salt", "user_api_key", "user_token", "user_token_expiry = " & CurrentTimeStampAddMinute(10))
+			DB.Where = Array("user_email = ?")
+			DB.Parameters = Array(hash, salt, apikey, token, user_email)
+			DB.Save
+		End If
+		Dim user2 As Map = CreateMap("email": user1.Get("user_email"), _
+		"token": user1.Get("user_token"))
+
+		HRM.ResponseCode = 200
+		HRM.ResponseObject = user2
+		HRM.ResponseMessage = "Password set to default (password)"
+	Else
+		HRM.ResponseCode = 400
+		HRM.ResponseError = "Email not found"
 	End If
 	DB.Close
 	ReturnApiResponse
@@ -723,14 +879,11 @@ Private Sub PutUpdateUserProfile
 	' #Version = v1
 	' #Desc = Update User name and location data
 	' #Body = {<br>&nbsp;"name": "name",<br>&nbsp;"location": "location"<br>}
-	' #Elements = ["update"]
+	' #Elements = ["update-profile"]
 
 	Dim access_token As String = WebApiUtils.RequestBearerToken(Request)
 	Dim user As UserData = FindUserByAccessToken(access_token)
-	If Not(user.IsInitialized) Then
-		HRM.ResponseCode = 401
-		HRM.ResponseError = "Invalid User Token"
-		ReturnApiResponse
+	If ValidateToken(user) = False Then
 		Return
 	End If
 
@@ -767,10 +920,129 @@ Private Sub PutUpdateUserProfile
 	DB.Parameters = Values
 	DB.Where = Array("user_email = ?", "user_token = ?")
 	DB.Save
+	
+	Dim user1 As Map = DB.First
+	Dim user2 As Map = CreateMap("email": user1.Get("user_email"), _
+	"name": user1.Get("user_name"), _
+	"location": user1.Get("user_location"), _
+	"modified_date": user1.Get("modified_date"))
 
 	HRM.ResponseCode = 200
 	HRM.ResponseMessage = "User updated successfully"
-	HRM.ResponseObject = DB.SelectOnly(Array("user_name", "user_email", "user_location", "modified_date"))
+	HRM.ResponseObject = user2
+	DB.Close
+	ReturnApiResponse
+End Sub
+
+Private Sub PutChangeUserPassword
+	' #Version = v1
+	' #Desc = Update User password
+	' #Body = {<br>&nbsp;"old": "current_password",<br>&nbsp;"new": "change_password"<br>}
+	' #Elements = ["change-password"]
+
+	Dim access_token As String = WebApiUtils.RequestBearerToken(Request)
+	Dim user As UserData = FindUserByAccessToken(access_token)
+	If ValidateToken(user) = False Then
+		Return
+	End If
+
+	Dim data As Map = WebApiUtils.RequestData(Request)
+	If Not(data.IsInitialized) Then
+		HRM.ResponseCode = 400
+		HRM.ResponseError = "Invalid json object"
+		ReturnApiResponse
+		Return
+	End If
+
+	' Check whether required keys are provided
+	Dim RequiredKeys As List = Array As String("old", "new")
+	For Each requiredkey As String In RequiredKeys
+		If Not(data.ContainsKey(requiredkey)) Then
+			HRM.ResponseCode = 400
+			HRM.ResponseError = $"'${requiredkey}' key not found"$
+			ReturnApiResponse
+			Return
+		End If
+	Next
+
+	Dim user_email As String = user.UserEmail
+	Dim current_password As String = data.Get("old")
+	Dim change_password As String = data.Get("new")
+	
+	DB.Table = "tbl_users"
+	DB.Select = Array("user_salt")
+	DB.Where = Array("user_email = ?")
+	DB.Parameters = Array(user_email)
+	Dim user_salt As String = DB.Scalar
+	Dim user_hash As String = Main.MD5(current_password & user_salt)
+
+	' Check user exist
+	DB.Table = "tbl_users"
+	DB.Select = Array("user_id AS 'id'", _
+	"user_name AS 'name'", _
+	"user_email AS 'email'", _
+	"user_hash AS 'hash'", _
+	"user_activation_flag AS 'flag'")
+	DB.Where = Array("user_email = ?", "user_hash = ?")
+	DB.Parameters = Array As String(user_email, user_hash)
+	DB.Query
+	
+	If DB.Found = False Then
+		HRM.ResponseCode = 404
+		HRM.ResponseError = "Current password incorrect"
+		DB.Close
+		ReturnApiResponse
+		Return
+	End If
+
+	If DB.First.Get("flag") = "R" Then
+		HRM.ResponseCode = 400
+		HRM.ResponseError = "Email Not Activated"
+		DB.Close
+		ReturnApiResponse
+		Return
+	End If
+
+	If DB.First.Get("hash") = Main.MD5(change_password & user_salt) Then
+		HRM.ResponseCode = 400
+		HRM.ResponseError = "New password cannot be same"
+		DB.Close
+		ReturnApiResponse
+		Return
+	End If
+
+	Dim salt As String = Main.MD5(Rnd(100001, 999999))
+	Dim hash As String = Main.MD5(change_password & salt)
+	Dim apikey As String = Main.SHA1(hash)
+	Dim token As String = Main.SHA1(Rnd(100001, 999999))
+	
+	DB.Reset
+	DB.UpdateModifiedDate = True
+	DB.Columns = Array("user_hash", "user_salt", "user_api_key", "user_token", "user_token_expiry = " & CurrentTimeStampAddMinute(10))
+	DB.Where = Array("user_email = ?")
+	DB.Parameters = Array(hash, salt, apikey, token, user_email)
+	DB.Save
+	
+	Dim user1 As Map = DB.First
+	' Notify User of password change (optional)
+	If Main.NOTIFICATION_ENABLED Then
+		Dim NotifyEmail As EmailData
+		NotifyEmail.Initialize
+		NotifyEmail.RecipientName = user1.Get("user_name")
+		NotifyEmail.RecipientEmail = user1.Get("user_email")
+		NotifyEmail.Action = "send change password notification"
+		SendEmail(NotifyEmail)
+	End If
+	
+	Dim user2 As Map = CreateMap("email": user1.Get("user_email"), _
+	"api_key": user1.Get("user_api_key"), _
+	"token": user1.Get("user_token"), _
+	"token_expiry": user1.Get("user_token_expiry"), _
+	"modified_date": user1.Get("modified_date"))
+
+	HRM.ResponseCode = 200
+	HRM.ResponseMessage = "Password updated successfully"
+	HRM.ResponseObject = user2
 	DB.Close
 	ReturnApiResponse
 End Sub

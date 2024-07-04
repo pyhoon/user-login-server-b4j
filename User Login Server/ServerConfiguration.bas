@@ -79,7 +79,7 @@ End Sub
 Public Sub ShowWelcomeText
 	Log($"User Login Server (version = ${Main.VERSION}) is running on port ${Main.Server.Port}${IIf(Main.Server.SslPort > 0, $" (redirected to port ${Main.Server.SslPort})"$, "")}"$)
 	Log($"Open the following URL from your web browser"$)
-	Log(ROOT_URL & ROOT_PATH)
+	Log(ROOT_URL & ROOT_PATH & "help")
 End Sub
 
 Public Sub getServerPort As Int
