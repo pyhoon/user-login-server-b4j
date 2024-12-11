@@ -1,7 +1,16 @@
 # ignore files
 User Login Server.b4j
 *.b4j.meta
+*.svg
+*.log
+*.ini
+*.html
+*.db*
+owl*
 
 # ignore ALL files in these directories
 AutoBackups/
-Objects/
+
+# Include www directory
+Objects/*
+!Objects/www/
