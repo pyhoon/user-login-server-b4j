@@ -4,7 +4,7 @@ ModulesStructureVersion=1
 Type=Class
 Version=9.1
 @EndOfDesignText@
-' Cross-Origin Resource Sharing (CORS) Filter class
+'Cross-Origin Resource Sharing (CORS) Filter class
 Sub Class_Globals
 	Private cPath As String
 	Private cSettings As Map
