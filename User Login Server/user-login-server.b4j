@@ -33,7 +33,7 @@ Version=10
 @EndOfDesignText@
 #Region Project Attributes
 ' Product: 			User Login Server (based on Web API Server Template v3.10)
-' Version: 			2.00 (require MiniORMUtils v1.14 and WebApiUtils v3.02)
+' Version: 			2.00 (require MiniORMUtils v1.14+ and WebApiUtils v3.02+)
 ' Description: 		Server application project template
 ' Developer:		Aeric Poon (https://www.b4x.com/android/forum/members/aeric.74499/)
 ' License:			Open Source
@@ -44,12 +44,12 @@ Version=10
 ' Publish: 			ide://run?file=%JAVABIN%\jar.exe&WorkingDirectory=../Objects&Args=-cMf&Args=Publish.zip&Args=www&Args=*.jar&Args=*.ini&Args=*.db&Args=help.html
 #CommandLineArgs:
 #MergeLibraries: True
-#IgnoreWarnings: 32
+'#IgnoreWarnings: 32
 #End Region
 #If MySQL
 #AdditionalJar: mysql-connector-java-8.0.30
 #Else
-#AdditionalJar: sqlite-jdbc-3.39.3.0
+#AdditionalJar: sqlite-jdbc-3.7.2
 #End If
 Sub Process_Globals
 	Public ctx							As Map

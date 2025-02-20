@@ -31,6 +31,6 @@ ModuleClosedNodes6=
 ModuleClosedNodes7=
 ModuleClosedNodes8=
 ModuleClosedNodes9=
-NavigationStack=
+NavigationStack=Main,Process_Globals,21,0,Main,AppStart,36,0,Main,ConfigureCORS,240,0,Main,ConfigurePort,276,0,UsersApiHandler,PostUserToken,672,0,UsersApiHandler,PostReadUserProfile,767,0
 SelectedBuild=0
 VisibleModules=
