@@ -33,7 +33,7 @@ Version=10
 @EndOfDesignText@
 #Region Project Attributes
 ' Product: 			User Login Server (based on Web API Server Template v3.10)
-' Version: 			2.00 (require MiniORMUtils v1.14+ and WebApiUtils v3.02+)
+' Version: 			2.10 (require MiniORMUtils v1.14+ and WebApiUtils v3.02+)
 ' Description: 		Server application project template
 ' Developer:		Aeric Poon (https://www.b4x.com/android/forum/members/aeric.74499/)
 ' License:			Open Source
