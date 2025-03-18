@@ -18,7 +18,7 @@ End Sub
 
 Public Sub Initialize
 	HRM.Initialize
-	HRM.SimpleResponse = Main.Config.SimpleResponse
+	HRM.SimpleResponse = Main.conf.SimpleResponse
 	DB.Initialize(Main.DBOpen, Main.DBEngine)
 End Sub
 

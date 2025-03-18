@@ -21,8 +21,9 @@ End Sub
 
 Public Sub Initialize
 	HRM.Initialize
-	HRM.SimpleResponse = Main.Config.SimpleResponse
+	HRM.SimpleResponse = Main.conf.SimpleResponse
 	DB.Initialize(Main.DBOpen, Main.DBEngine)
+	DB.ShowExtraLogs = True
 End Sub
 
 Sub Handle (req As ServletRequest, resp As ServletResponse)
@@ -153,37 +154,10 @@ Private Sub ReturnMethodNotAllow
 	WebApiUtils.ReturnMethodNotAllow(HRM, Response)
 End Sub
 
-'Private Sub GetUsers
-'	' #Hide
-'	' #Desc = Read all Users
-'	DB.Table = "tbl_Users"
-'	DB.Query
-'	HRM.ResponseCode = 200
-'	HRM.ResponseData = DB.Results
-'	ReturnApiResponse
-'	DB.Close
-'End Sub
-
-Private Sub GetUserById (Id As Int)
-	' #Hide
-	' #Desc = Read one User by id
-	' #Elements = [":id"]
-	DB.Table = "tbl_Users"
-	DB.Find(Id)
-	If DB.Found Then
-		HRM.ResponseCode = 200
-		HRM.ResponseObject = DB.First
-	Else
-		HRM.ResponseCode = 404
-		HRM.ResponseError = "User not found"
-	End If
-	ReturnApiResponse
-	DB.Close
-End Sub
-
 Private Sub ValidateToken (Token As UserData) As Boolean
 	Try
-		If Token = Null Or Token.IsInitialized = False Then
+		'If Token = Null Or Token.IsInitialized = False Then
+		If NotInitialized(Token) Then 'B4J v10.20
 			HRM.ResponseCode = 401
 			HRM.ResponseError = "Undefine User Token"
 			ReturnApiResponse
@@ -200,7 +174,7 @@ Private Sub ValidateToken (Token As UserData) As Boolean
 		Dim CurrentDateFormat As String = DateTime.DateFormat
 		DateTime.DateFormat = "yyyy-MM-dd"
 		DateTime.TimeFormat = "HH:mm:ss"
-		Dim date1() As String = Regex.Split(" ", Main.DBConnector.GetDateTime)
+		Dim date1() As String = Regex.Split(" ", Main.conn.GetDateTime)
 		Dim date2() As String = Regex.Split(" ", Token.UserTokenExpiry)
 		Dim DateNow As String = date1(0)
 		Dim TimeNow As String = date1(1)
@@ -227,6 +201,7 @@ Private Sub ValidateToken (Token As UserData) As Boolean
 End Sub
 
 Private Sub FindUserByAccessToken (Token As String) As UserData
+	DB.SQL = Main.DBOpen
 	DB.Table = "tbl_users"
 	DB.Where = Array("user_token = ?")
 	DB.Parameters = Array(Token)
@@ -249,14 +224,14 @@ End Sub
 
 Sub SendEmail (NewEmail As EmailData)
 	Try
-		Dim ROOT_URL As String = Main.Config.RootUrl
-		Dim ROOT_PATH As String = Main.Config.RootPath
+		Dim ROOT_URL As String = Main.conf.RootUrl
+		Dim ROOT_PATH As String = Main.conf.RootPath
 		Dim APP_TRADEMARK As String = Main.ctx.Get("APP_TRADEMARK")
-		Dim SMTP_USERNAME As String = Main.Config.SmtpUserName
-		Dim SMTP_PASSWORD As String = Main.Config.SmtpPassword
-		Dim SMTP_SERVER As String = Main.Config.SmtpServer
-		Dim SMTP_USESSL As String = Main.Config.SmtpUseSsl
-		Dim SMTP_PORT As Int = Main.Config.SmtpPort
+		Dim SMTP_USERNAME As String = Main.conf.SmtpUserName
+		Dim SMTP_PASSWORD As String = Main.conf.SmtpPassword
+		Dim SMTP_SERVER As String = Main.conf.SmtpServer
+		Dim SMTP_USESSL As String = Main.conf.SmtpUseSsl
+		Dim SMTP_PORT As Int = Main.conf.SmtpPort
 		Dim EmailSubject As String
 		Dim EmailBody As String
 		
@@ -358,18 +333,19 @@ Private Sub GetShowUserList
 		Return
 	End If
 	
-	Select Main.DBEngine.ToUpperCase
-		Case "MYSQL"
+	Select Main.DBEngine
+		Case DB.MYSQL
 			Dim online As String = $"CASE WHEN (TIME_TO_SEC(TIMEDIFF(now(), user_last_login)) < 600)
 			THEN 'Y' ELSE 'N' END AS online,
 			TIME_TO_SEC(TIMEDIFF(now(), user_last_login)) AS last_online"$
-		Case "SQLITE"
+		Case DB.SQLITE
 			Dim online As String = $"CASE WHEN (((strftime('%s', 'now') - strftime('%s', user_last_login)) / 60) < 10)
 			THEN 'Y' ELSE 'N' END AS online,
 			(strftime('%s', 'now') - strftime('%s', user_last_login)) AS last_online"$
 	End Select
 
-	DB.Reset
+	DB.SQL = Main.DBOpen
+	DB.Table = "tbl_users"
 	DB.Select = Array("user_email AS email", "user_name AS name", "user_location AS location", online)
 	DB.Query
 	
@@ -379,12 +355,34 @@ Private Sub GetShowUserList
 	ReturnApiResponse
 End Sub
 
+Private Sub GetUserById (Id As Int)
+	' #Hide
+	' #Authenticate = Token
+	' #Version = v1
+	' #Desc = Read one User by id
+	' #Elements = [":id"]
+	DB.SQL = Main.DBOpen
+	DB.Table = "tbl_Users"
+	'DB.Find(Id)
+	DB.Find2("user_id = ?", Id)
+	If DB.Found Then
+		HRM.ResponseCode = 200
+		HRM.ResponseObject = DB.First
+	Else
+		HRM.ResponseCode = 404
+		HRM.ResponseError = "User not found"
+	End If
+	ReturnApiResponse
+	DB.Close
+End Sub
+
 Private Sub GetActivateUser (ActivationCode As String)
 	' #Version = v1
 	' #Desc = Activate User by Code
 	' #Elements = ["activate", ":code"]
 	
 	Log($"${Request.Method}: ${Request.RequestURI}"$)
+	DB.SQL = Main.DBOpen
 	DB.Table = "tbl_users"
 	DB.Select = Array("user_email", "user_hash", "user_salt", "user_activation_code")
 	DB.Where = Array("user_activation_code = ?")
@@ -398,7 +396,7 @@ Private Sub GetActivateUser (ActivationCode As String)
 		DB.Reset
 		DB.Columns = Array("user_api_key", "user_activation_code", "user_activation_flag", "user_active", "user_activated_date")
 		DB.Where = Array("user_activation_code = ?")
-		DB.Parameters = Array(api_key, new_code, "A", 1, Main.DBConnector.GetDateTime, ActivationCode)
+		DB.Parameters = Array(api_key, new_code, "A", 1, Main.conn.GetDateTime, ActivationCode)
 		DB.Save
 		
 		Dim user1 As Map = DB.First
@@ -422,6 +420,7 @@ Private Sub GetConfirmResetPassword (ResetCode As String)
 	' #Elements = ["confirm-reset", ":code"]
 	
 	Log($"${Request.Method}: ${Request.RequestURI}"$)
+	DB.SQL = Main.DBOpen
 	DB.Table = "tbl_users"
 	DB.Select = Array("user_email", "user_hash", "user_salt", "user_activation_code")
 	DB.Where = Array("user_activation_code = ?")
@@ -503,6 +502,7 @@ Private Sub PostRegisterUser
 	Utils.ReMapKey(data, "password", "user_password")
 
 	' Check conflict user account
+	DB.SQL = Main.DBOpen
 	DB.Table = "tbl_users"
 	DB.Where = Array("user_email = ?")
 	DB.Parameters = Array(data.Get("user_email"))
@@ -631,6 +631,7 @@ Private Sub PostUserLogin
 	Dim user_email As String = data.Get("user_email")
 	Dim user_password As String = data.Get("user_password")
 
+	DB.SQL = Main.DBOpen
 	DB.Table = "tbl_users"
 	DB.Select = Array("user_salt")
 	DB.Where = Array("user_email = ?")
@@ -711,6 +712,7 @@ Private Sub PostUserToken
 	Dim user_email As String = data.Get("user_email")
 	Dim api_key As String = data.Get("user_api_key")
 
+	DB.SQL = Main.DBOpen
 	DB.Table = "tbl_users"
 	DB.Where = Array("user_email = ?", "user_api_key = ?")
 	DB.Parameters = Array(user_email, api_key)
@@ -769,17 +771,18 @@ Private Sub PostReadUserProfile
 	Utils.ReMapKey(data, "email", "user_email")
 	Dim user_email As String = data.Get("user_email")
 	
-	Select Main.DBEngine.ToUpperCase
-		Case "MYSQL"
+	Select Main.DBEngine
+		Case DB.MYSQL
 			Dim online As String = $"CASE WHEN (TIME_TO_SEC(TIMEDIFF(now(), user_last_login)) < 600)
 			THEN 'Y' ELSE 'N' END AS online,
 			now() - user_last_login AS last_online"$
-		Case "SQLITE"
+		Case DB.SQLITE
 			Dim online As String = $"CASE WHEN (((strftime('%s', 'now') - strftime('%s', user_last_login)) / 60) < 10)
 			THEN 'Y' ELSE 'N' END AS online,
 			(strftime('%s', 'now') - strftime('%s', user_last_login)) AS last_online"$
 	End Select
 	
+	DB.SQL = Main.DBOpen
 	DB.Table = "tbl_users"
 	DB.Select = Array("user_name", _
 	"user_email", _
@@ -839,6 +842,7 @@ Private Sub PostResetUserPassword
 	Utils.ReMapKey(data, "email", "user_email")
 	Dim user_email As String = data.Get("user_email")
 	
+	DB.SQL = Main.DBOpen
 	DB.Table = "tbl_users"
 	DB.Where = Array("user_email = ?")
 	DB.Parameters = Array(user_email)
@@ -930,7 +934,8 @@ Private Sub PutUpdateUserProfile
 	Values.Add(user.UserEmail)
 	Values.Add(user.UserToken)
 	
-	DB.Reset
+	DB.SQL = Main.DBOpen
+	DB.Table = "tbl_users"
 	DB.UpdateModifiedDate = True
 	DB.Columns = Columns
 	DB.Parameters = Values
@@ -987,6 +992,7 @@ Private Sub PutChangeUserPassword
 	Dim current_password As String = data.Get("old")
 	Dim change_password As String = data.Get("new")
 	
+	DB.SQL = Main.DBOpen
 	DB.Table = "tbl_users"
 	DB.Select = Array("user_salt")
 	DB.Where = Array("user_email = ?")
@@ -1065,9 +1071,10 @@ Private Sub PutChangeUserPassword
 	ReturnApiResponse
 End Sub
 
-
 Private Sub PostUser
 	' #Hide
+	' #Authenticate = Token
+	' #Version = v1
 	' #Desc = Add a new User
 	' #Body = {<br>&nbsp; "name": "User_name"<br>}
 	
@@ -1095,8 +1102,9 @@ Private Sub PostUser
 	End If
 	
 	' Check conflict User name
-	DB.Table = "tbl_Users"
-	DB.Where = Array("User_name = ?")
+	DB.SQL = Main.DBOpen
+	DB.Table = "tbl_users"
+	DB.Where = Array("user_name = ?")
 	DB.Parameters = Array As String(data.Get("User_name"))
 	DB.Query
 	If DB.Found Then
@@ -1109,9 +1117,9 @@ Private Sub PostUser
 	
 	' Insert new row
 	DB.Reset
-	DB.Columns = Array("User_name", "created_date")
-	DB.Parameters = Array(data.Get("User_name"), data.GetDefault("created_date", WebApiUtils.CurrentDateTime))
-	DB.Save
+	DB.Columns = Array("user_name", "created_date")
+	DB.Parameters = Array(data.Get("user_name"), data.GetDefault("created_date", WebApiUtils.CurrentDateTime))
+	DB.Save3("user_id")
 	
 	' Retrieve new row
 	HRM.ResponseCode = 201
@@ -1123,6 +1131,8 @@ End Sub
 
 Private Sub PutUserById (Id As Int)
 	' #Hide
+	' #Authenticate = Token
+	' #Version = v1
 	' #Desc = Update User by id
 	' #Body = {<br>&nbsp; "name": "User_name"<br>}
 	' #Elements = [":id"]
@@ -1138,22 +1148,24 @@ Private Sub PutUserById (Id As Int)
 
 	' Deprecated: Make it compatible with Web API Client v1 (will be removed)
 	If data.ContainsKey("name") Then
-		data.Put("User_name", data.Get("name"))
+		data.Put("user_name", data.Get("name"))
 		data.Remove("name")
 	End If
 	
 	' Check whether required keys are provided
-	If data.ContainsKey("User_name") = False Then
+	If data.ContainsKey("user_name") = False Then
 		HRM.ResponseCode = 400
-		HRM.ResponseError = "Key 'User_name' not found"
+		HRM.ResponseError = "Key 'user_name' not found"
 		ReturnApiResponse
 		Return
 	End If
 	
 	' Check conflict User name
-	DB.Table = "tbl_Users"
-	DB.Where = Array("User_name = ?", "id <> ?")
-	DB.Parameters = Array As String(data.Get("User_name"), Id)
+	DB.SQL = Main.DBOpen
+	DB.Table = "tbl_users"
+	'DB.Where = Array("user_name = ?", "id <> ?")
+	DB.Where = Array("user_name = ?", "user_id <> ?")
+	DB.Parameters = Array As String(data.Get("user_name"), Id)
 	DB.Query
 	If DB.Found Then
 		HRM.ResponseCode = 409
@@ -1163,7 +1175,8 @@ Private Sub PutUserById (Id As Int)
 		Return
 	End If
 	
-	DB.Find(Id)
+	'DB.Find(Id)
+	DB.Find2("user_id = ?", Id)
 	If DB.Found = False Then
 		HRM.ResponseCode = 404
 		HRM.ResponseError = "User not found"
@@ -1173,11 +1186,12 @@ Private Sub PutUserById (Id As Int)
 	End If
 
 	DB.Reset
-	DB.Columns = Array("User_name", _
+	DB.Columns = Array("user_name", _
 	"modified_date")
-	DB.Parameters = Array(data.Get("User_name"), _
+	DB.Parameters = Array(data.Get("user_name"), _
 	data.GetDefault("created_date", WebApiUtils.CurrentDateTime))
-	DB.Id = Id
+	'DB.Id = Id
+	DB.WhereParams(Array("user_id = ?"), Array(Id))
 	DB.Save
 
 	HRM.ResponseCode = 200
@@ -1189,12 +1203,16 @@ End Sub
 
 Private Sub DeleteUserById (Id As Int)
 	' #Hide
+	' #Authenticate = Token
+	' #Version = v1
 	' #Desc = Delete User by id
 	' #Elements = [":id"]
 	
 	Log($"${Request.Method}: ${Request.RequestURI}"$)
+	DB.SQL = Main.DBOpen
 	DB.Table = "tbl_Users"
-	DB.Find(Id)
+	'DB.Find(Id)
+	DB.Find2("user_id = ?", Id)
 	If DB.Found = False Then
 		HRM.ResponseCode = 404
 		HRM.ResponseError = "User not found"
@@ -1204,7 +1222,8 @@ Private Sub DeleteUserById (Id As Int)
 	End If
 	
 	DB.Reset
-	DB.Id = Id
+	'DB.Id = Id
+	DB.WhereParam("user_id = ?", Id)
 	DB.Delete
 	HRM.ResponseCode = 200
 	HRM.ResponseMessage = "User deleted successfully"

@@ -42,8 +42,8 @@ Private Sub ReturnPage
 	strMain = WebApiUtils.BuildDocView(strMain, strView)
 	strMain = WebApiUtils.BuildTag(strMain, "HELP", ReturnHelpElement)
 	strMain = WebApiUtils.BuildHtml(strMain, Main.ctx)
-	If Main.Config.SimpleResponse.Enable Then
-		If Main.Config.SimpleResponse.Format = "Map" Then
+	If Main.conf.SimpleResponse.Enable Then
+		If Main.conf.SimpleResponse.Format = "Map" Then
 			strJSFile = "category.simple.map.js"
 		Else
 			strJSFile = "category.simple.js"
@@ -51,16 +51,16 @@ Private Sub ReturnPage
 	Else
 		strJSFile = "category.js"
 	End If
-	strScripts = $"<script src="${Main.Config.ServerUrl}/assets/scripts/${strJSFile}"></script>"$
+	strScripts = $"<script src="${Main.conf.ServerUrl}/assets/scripts/${strJSFile}"></script>"$
 	strMain = WebApiUtils.BuildScript(strMain, strScripts)
 	WebApiUtils.ReturnHTML(strMain, Response)
 End Sub
 
 Private Sub ReturnHelpElement As String
-	If Main.Config.EnableHelp = False Then
+	If Main.conf.EnableHelp = False Then
 		Return ""
 	End If
 	Return $"${CRLF & TAB & TAB}<li class="nav-item">
-${TAB & TAB & TAB}<a class="nav-link mr-3 font-weight-bold text-white" href="${Main.Config.ServerUrl}/help"><i class="fas fa-cog" title="API"></i> API</a>
+${TAB & TAB & TAB}<a class="nav-link mr-3 font-weight-bold text-white" href="${Main.conf.ServerUrl}/help"><i class="fas fa-cog" title="API"></i> API</a>
 ${TAB & TAB}</li>"$
 End Sub

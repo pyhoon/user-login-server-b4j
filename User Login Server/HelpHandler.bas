@@ -45,7 +45,7 @@ Private Sub ShowHelpPage
 	'strMain = WebApiUtils.BuildCsrfToken(strMain, csrf_token)
 	strMain = WebApiUtils.BuildTag(strMain, "HELP", "") ' Hide API icon
 	strMain = WebApiUtils.BuildHtml(strMain, Main.ctx)
-	strMain = WebApiUtils.BuildScript(strMain, $"<script src="${Main.Config.ServerUrl}/assets/scripts/help${IIf(Main.Config.SimpleResponse.Enable, ".simple", "")}.js"></script>"$)
+	strMain = WebApiUtils.BuildScript(strMain, $"<script src="${Main.conf.ServerUrl}/assets/scripts/help${IIf(Main.conf.SimpleResponse.Enable, ".simple", "")}.js"></script>"$)
 	WebApiUtils.ReturnHtml(strMain, Response)
 End Sub
 
@@ -300,10 +300,10 @@ Public Sub ReadHandlers (FileDir As String) As String
 End Sub
 
 Private Sub GenerateLink (ApiVersion As String, Handler As String, Elements As List) As String
-	Dim Link As String = "$SERVER_URL$/" & Main.Config.ApiName
+	Dim Link As String = "$SERVER_URL$/" & Main.conf.ApiName
 	If Link.EndsWith("/") = False Then Link = Link & "/"
 	If ApiVersion.EqualsIgnoreCase("null") = False Then
-		If Main.Config.ApiVersioning Then Link = Link & ApiVersion
+		If Main.conf.ApiVersioning Then Link = Link & ApiVersion
 		If Link.EndsWith("/") = False Then Link = Link & "/"
 	End If
 	Link = Link & Handler.ToLowerCase
@@ -381,7 +381,7 @@ Public Sub GenerateVerbSection (section As VerbSection) As String
 					${Expected}</p>
 				</div>
 	            <div class="col-md-3 p-3">
-					<form id="form1" method="${Verb}">
+					<form method="${Verb}">
 					<p><strong>Path</strong><br/>
 	                <input${IIf(InputDisabled, " disabled", "")} id="path${ElementId}" class="form-control data-path" style="background-color: ${IIf(InputDisabled, DisabledBackground, "#FFFFFF")}; font-size: small" value="${Link & strFormat}"></p>
 					${IIf(Verb.EqualsIgnoreCase("POST") Or Verb.EqualsIgnoreCase("PUT"), strBodyInput, $""$)}
