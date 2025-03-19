@@ -17,21 +17,18 @@ Library4=miniormutils
 Library5=webapiutils
 Library6=jnet
 Module1=CategoriesApiHandler
-Module10=ProductsApiHandler
-Module11=UsersApiHandler
-Module12=Utility
-Module13=Utils
+Module10=Utility
 Module2=CategoriesWebHandler
 Module3=CorsFilter
 Module4=FindApiHandler
 Module5=HelpHandler
 Module6=HttpsFilter
 Module7=IndexWebHandler
-Module8=|absolute|C:\B4X\Development\MiniORMUtils-b4x\MiniORM
-Module9=|absolute|C:\B4X\Development\MiniORMUtils-b4x\ORMConnector
+Module8=ProductsApiHandler
+Module9=UsersApiHandler
 NumberOfFiles=4
 NumberOfLibraries=6
-NumberOfModules=13
+NumberOfModules=10
 Version=10.2
 @EndOfDesignText@
 #Region Project Attributes

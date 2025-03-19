@@ -390,8 +390,8 @@ Private Sub GetActivateUser (ActivationCode As String)
 	DB.Query
 	
 	If DB.Found Then
-		Dim api_key As String = Utils.SHA1(DB.First.Get("user_hash"))
-		Dim new_code As String = Utils.MD5(Rnd(100001, 999999))
+		Dim api_key As String = Utility.SHA1(DB.First.Get("user_hash"))
+		Dim new_code As String = Utility.MD5(Rnd(100001, 999999))
 		
 		DB.Reset
 		DB.Columns = Array("user_api_key", "user_activation_code", "user_activation_flag", "user_active", "user_activated_date")
@@ -428,13 +428,13 @@ Private Sub GetConfirmResetPassword (ResetCode As String)
 	DB.Query
 	
 	If DB.Found Then
-		Dim salt As String = Utils.MD5(Rnd(100001, 999999))
-		Dim temp As String = Utils.MD5(Rnd(100001, 999999))
+		Dim salt As String = Utility.MD5(Rnd(100001, 999999))
+		Dim temp As String = Utility.MD5(Rnd(100001, 999999))
 		temp = temp.SubString(temp.Length - 8) ' get last 8 letters
-		Dim hash As String = Utils.MD5(temp & salt)	' random password
-		Dim code As String = Utils.MD5(Rnd(100001, 999999))
-		Dim apikey As String = Utils.SHA1(hash)
-		Dim token As String = Utils.SHA1(Rnd(100001, 999999))
+		Dim hash As String = Utility.MD5(temp & salt)	' random password
+		Dim code As String = Utility.MD5(Rnd(100001, 999999))
+		Dim apikey As String = Utility.SHA1(hash)
+		Dim token As String = Utility.SHA1(Rnd(100001, 999999))
 
 		DB.Reset
 		DB.Columns = Array("user_hash", "user_salt", "user_apikey", "user_token", "user_activation_code")
@@ -497,9 +497,9 @@ Private Sub PostRegisterUser
 	Next
 
 	' Remap keys to table column names
-	Utils.ReMapKey(data, "name", "user_name")
-	Utils.ReMapKey(data, "email", "user_email")
-	Utils.ReMapKey(data, "password", "user_password")
+	Utility.ReMapKey(data, "name", "user_name")
+	Utility.ReMapKey(data, "email", "user_email")
+	Utility.ReMapKey(data, "password", "user_password")
 
 	' Check conflict user account
 	DB.SQL = Main.DBOpen
@@ -531,8 +531,8 @@ Private Sub PostRegisterUser
 				Columns.Add(key)
 				Values.Add(user_email)
 			Case "user_password"
-				Dim salt As String = Utils.MD5(Rnd(100001, 999999))
-				Dim hash As String = Utils.MD5(data.Get("user_password") & salt)
+				Dim salt As String = Utility.MD5(Rnd(100001, 999999))
+				Dim hash As String = Utility.MD5(data.Get("user_password") & salt)
 				Columns.Add("user_salt")
 				Values.Add(salt)
 				Columns.Add("user_hash")
@@ -545,14 +545,14 @@ Private Sub PostRegisterUser
 		Dim activation_flag As String = "R"
 		Columns.Add("user_activation_flag")
 		Values.Add(activation_flag)
-		Dim activation_code As String = Utils.MD5(salt & user_email)
+		Dim activation_code As String = Utility.MD5(salt & user_email)
 		Columns.Add("user_activation_code")
 		Values.Add(activation_code)
 	Else
 		Dim activation_flag As String = "A"
 		Columns.Add("user_activation_flag")
 		Values.Add(activation_flag)
-		Dim api_key As String = Utils.SHA1(hash)
+		Dim api_key As String = Utility.SHA1(hash)
 		Columns.Add("user_api_key")
 		Values.Add(api_key)
 	End If
@@ -626,8 +626,8 @@ Private Sub PostUserLogin
 	Next
 
 	' Remap keys to table column names
-	Utils.ReMapKey(data, "email", "user_email")
-	Utils.ReMapKey(data, "password", "user_password")
+	Utility.ReMapKey(data, "email", "user_email")
+	Utility.ReMapKey(data, "password", "user_password")
 	Dim user_email As String = data.Get("user_email")
 	Dim user_password As String = data.Get("user_password")
 
@@ -637,7 +637,7 @@ Private Sub PostUserLogin
 	DB.Where = Array("user_email = ?")
 	DB.Parameters = Array(user_email)
 	Dim user_salt As String = DB.Scalar
-	Dim user_hash As String = Utils.MD5(user_password & user_salt)
+	Dim user_hash As String = Utility.MD5(user_password & user_salt)
 
 	' Check user exist
 	DB.Table = "tbl_users"
@@ -707,8 +707,8 @@ Private Sub PostUserToken
 	Next
 
 	' Remap keys to table column names
-	Utils.ReMapKey(data, "email", "user_email")
-	Utils.ReMapKey(data, "apikey", "user_api_key")
+	Utility.ReMapKey(data, "email", "user_email")
+	Utility.ReMapKey(data, "apikey", "user_api_key")
 	Dim user_email As String = data.Get("user_email")
 	Dim api_key As String = data.Get("user_api_key")
 
@@ -720,11 +720,11 @@ Private Sub PostUserToken
 	
 	If DB.Found Then
 		' Update user token
-		Dim token As String = Utils.SHA1(Rnd(100001, 999999))
+		Dim token As String = Utility.SHA1(Rnd(100001, 999999))
 		DB.Reset
 		DB.Columns = Array("user_token", _
-		"user_token_expiry = " & Utils.CurrentTimeStampAddMinute(10), _
-		"user_last_login = " & Utils.CurrentTimeStamp, _
+		"user_token_expiry = " & Utility.CurrentTimeStampAddMinute(10), _
+		"user_last_login = " & Utility.CurrentTimeStamp, _
 		"user_login_count++")
 		DB.Where = Array("user_email = ?", "user_api_key = ?")
 		DB.Parameters = Array(token, user_email, api_key)
@@ -768,7 +768,7 @@ Private Sub PostReadUserProfile
 	End If
 
 	' Remap keys to table column names
-	Utils.ReMapKey(data, "email", "user_email")
+	Utility.ReMapKey(data, "email", "user_email")
 	Dim user_email As String = data.Get("user_email")
 	
 	Select Main.DBEngine
@@ -839,7 +839,7 @@ Private Sub PostResetUserPassword
 	Next
 
 	' Remap keys to table column names
-	Utils.ReMapKey(data, "email", "user_email")
+	Utility.ReMapKey(data, "email", "user_email")
 	Dim user_email As String = data.Get("user_email")
 	
 	DB.SQL = Main.DBOpen
@@ -851,7 +851,7 @@ Private Sub PostResetUserPassword
 		Dim user1 As Map = DB.First
 		If Main.CONFIRMATION_REQUIRED Then
 			' Update activation code column with reset code
-			Dim resetcode As String = Utils.MD5(Rnd(100001, 999999))
+			Dim resetcode As String = Utility.MD5(Rnd(100001, 999999))
 			DB.Reset
 			DB.Columns = Array("user_activation_code")
 			DB.Where = Array("user_email = ?")
@@ -868,13 +868,13 @@ Private Sub PostResetUserPassword
 		Else
 			' if email confirmation not required
 			' Update user api key and token
-			Dim salt As String = Utils.MD5(Rnd(100001, 999999))
-			Dim hash As String = Utils.MD5("password" & salt) ' default password
-			Dim apikey As String = Utils.SHA1(hash)
-			Dim token As String = Utils.SHA1(Rnd(100001, 999999))
+			Dim salt As String = Utility.MD5(Rnd(100001, 999999))
+			Dim hash As String = Utility.MD5("password" & salt) ' default password
+			Dim apikey As String = Utility.SHA1(hash)
+			Dim token As String = Utility.SHA1(Rnd(100001, 999999))
 			
 			DB.Reset
-			DB.Columns = Array("user_hash", "user_salt", "user_api_key", "user_token", "user_token_expiry = " & Utils.CurrentTimeStampAddMinute(10))
+			DB.Columns = Array("user_hash", "user_salt", "user_api_key", "user_token", "user_token_expiry = " & Utility.CurrentTimeStampAddMinute(10))
 			DB.Where = Array("user_email = ?")
 			DB.Parameters = Array(hash, salt, apikey, token, user_email)
 			DB.Save
@@ -916,8 +916,8 @@ Private Sub PutUpdateUserProfile
 	End If
 
 	' Remap keys to table column names
-	Utils.ReMapKey(data, "name", "user_name")
-	Utils.ReMapKey(data, "location", "user_location")
+	Utility.ReMapKey(data, "name", "user_name")
+	Utility.ReMapKey(data, "location", "user_location")
 	Dim user_name As String = data.Get("user_name")
 	Dim user_location As String = data.Get("user_location")
 						
@@ -998,7 +998,7 @@ Private Sub PutChangeUserPassword
 	DB.Where = Array("user_email = ?")
 	DB.Parameters = Array(user_email)
 	Dim user_salt As String = DB.Scalar
-	Dim user_hash As String = Utils.MD5(current_password & user_salt)
+	Dim user_hash As String = Utility.MD5(current_password & user_salt)
 
 	' Check user exist
 	DB.Table = "tbl_users"
@@ -1027,7 +1027,7 @@ Private Sub PutChangeUserPassword
 		Return
 	End If
 
-	If DB.First.Get("hash") = Utils.MD5(change_password & user_salt) Then
+	If DB.First.Get("hash") = Utility.MD5(change_password & user_salt) Then
 		HRM.ResponseCode = 400
 		HRM.ResponseError = "New password cannot be same"
 		DB.Close
@@ -1035,14 +1035,14 @@ Private Sub PutChangeUserPassword
 		Return
 	End If
 
-	Dim salt As String = Utils.MD5(Rnd(100001, 999999))
-	Dim hash As String = Utils.MD5(change_password & salt)
-	Dim apikey As String = Utils.SHA1(hash)
-	Dim token As String = Utils.SHA1(Rnd(100001, 999999))
+	Dim salt As String = Utility.MD5(Rnd(100001, 999999))
+	Dim hash As String = Utility.MD5(change_password & salt)
+	Dim apikey As String = Utility.SHA1(hash)
+	Dim token As String = Utility.SHA1(Rnd(100001, 999999))
 	
 	DB.Reset
 	DB.UpdateModifiedDate = True
-	DB.Columns = Array("user_hash", "user_salt", "user_api_key", "user_token", "user_token_expiry = " & Utils.CurrentTimeStampAddMinute(10))
+	DB.Columns = Array("user_hash", "user_salt", "user_api_key", "user_token", "user_token_expiry = " & Utility.CurrentTimeStampAddMinute(10))
 	DB.Where = Array("user_email = ?")
 	DB.Parameters = Array(hash, salt, apikey, token, user_email)
 	DB.Save
