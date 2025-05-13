@@ -2,7 +2,7 @@
 Group=Handlers
 ModulesStructureVersion=1
 Type=Class
-Version=10
+Version=10.2
 @EndOfDesignText@
 'Api Handler class
 'Version 3.10
@@ -19,7 +19,6 @@ End Sub
 Public Sub Initialize
 	HRM.Initialize
 	HRM.SimpleResponse = Main.conf.SimpleResponse
-	DB.Initialize(Main.DBOpen, Main.DBEngine)
 End Sub
 
 Sub Handle (req As ServletRequest, resp As ServletResponse)
@@ -40,19 +39,19 @@ Sub Handle (req As ServletRequest, resp As ServletResponse)
 			End If
 		Case "POST"
 			If ElementMatch("") Then
-				PostCategory
+				CreateNewCategory
 				Return
 			End If
 		Case "PUT"
 			If ElementMatch("id") Then
-				PutCategoryById(ElementId)
+				UpdateCategoryById(ElementId)
 				Return
 			End If
 		Case "DELETE"
 			If ElementMatch("id") Then
 				DeleteCategoryById(ElementId)
 				Return
-			End If			
+			End If
 		Case Else
 			Log("Unsupported method: " & Method)
 			ReturnMethodNotAllow
@@ -91,7 +90,7 @@ Private Sub ReturnMethodNotAllow
 End Sub
 
 Private Sub GetCategories
-	' #Desc = Read all Categories
+	DB.Initialize(Main.DBType, Main.DBOpen)
 	DB.Table = "tbl_categories"
 	DB.Query
 	HRM.ResponseCode = 200
@@ -100,11 +99,10 @@ Private Sub GetCategories
 	DB.Close
 End Sub
 
-Private Sub GetCategoryById (Id As Int)
-	' #Desc = Read one Category by id
-	' #Elements = [":id"]
+Private Sub GetCategoryById (id As Int)
+	DB.Initialize(Main.DBType, Main.DBOpen)
 	DB.Table = "tbl_categories"
-	DB.Find(Id)
+	DB.Find(id)
 	If DB.Found Then
 		HRM.ResponseCode = 200
 		HRM.ResponseObject = DB.First
@@ -116,21 +114,13 @@ Private Sub GetCategoryById (Id As Int)
 	DB.Close
 End Sub
 
-Private Sub PostCategory
-	' #Desc = Add a new Category
-	' #Body = {<br>&nbsp; "name": "category_name"<br>}
+Private Sub CreateNewCategory
 	Dim data As Map = WebApiUtils.RequestData(Request)
 	If Not(data.IsInitialized) Then
 		HRM.ResponseCode = 400
 		HRM.ResponseError = "Invalid json object"
 		ReturnApiResponse
 		Return
-	End If
-
-	' Deprecated: Make it compatible with Web API Client v1 (will be removed)
-	If data.ContainsKey("name") Then
-		data.Put("category_name", data.Get("name"))
-		data.Remove("name")
 	End If
 	
 	' Check whether required keys are provided
@@ -142,6 +132,7 @@ Private Sub PostCategory
 	End If
 	
 	' Check conflict category name
+	DB.Initialize(Main.DBType, Main.DBOpen)
 	DB.Table = "tbl_categories"
 	DB.Where = Array("category_name = ?")
 	DB.Parameters = Array As String(data.Get("category_name"))
@@ -168,22 +159,13 @@ Private Sub PostCategory
 	DB.Close
 End Sub
 
-Private Sub PutCategoryById (Id As Int)
-	' #Desc = Update Category by id
-	' #Body = {<br>&nbsp; "name": "category_name"<br>}
-	' #Elements = [":id"]
+Private Sub UpdateCategoryById (id As Int)
 	Dim data As Map = WebApiUtils.RequestData(Request)
 	If Not(data.IsInitialized) Then
 		HRM.ResponseCode = 400
 		HRM.ResponseError = "Invalid json object"
 		ReturnApiResponse
 		Return
-	End If
-
-	' Deprecated: Make it compatible with Web API Client v1 (will be removed)
-	If data.ContainsKey("name") Then
-		data.Put("category_name", data.Get("name"))
-		data.Remove("name")
 	End If
 	
 	' Check whether required keys are provided
@@ -195,9 +177,10 @@ Private Sub PutCategoryById (Id As Int)
 	End If
 	
 	' Check conflict category name
+	DB.Initialize(Main.DBType, Main.DBOpen)
 	DB.Table = "tbl_categories"
 	DB.Where = Array("category_name = ?", "id <> ?")
-	DB.Parameters = Array As String(data.Get("category_name"), Id)
+	DB.Parameters = Array As String(data.Get("category_name"), id)
 	DB.Query
 	If DB.Found Then
 		HRM.ResponseCode = 409
@@ -207,7 +190,7 @@ Private Sub PutCategoryById (Id As Int)
 		Return
 	End If
 	
-	DB.Find(Id)
+	DB.Find(id)
 	If DB.Found = False Then
 		HRM.ResponseCode = 404
 		HRM.ResponseError = "Category not found"
@@ -221,7 +204,7 @@ Private Sub PutCategoryById (Id As Int)
 	"modified_date")
 	DB.Parameters = Array(data.Get("category_name"), _
 	data.GetDefault("created_date", WebApiUtils.CurrentDateTime))
-	DB.Id = Id
+	DB.Id = id
 	DB.Save
 
 	HRM.ResponseCode = 200
@@ -231,11 +214,10 @@ Private Sub PutCategoryById (Id As Int)
 	DB.Close
 End Sub
 
-Private Sub DeleteCategoryById (Id As Int)
-	' #Desc = Delete Category by id
-	' #Elements = [":id"]
+Private Sub DeleteCategoryById (id As Int)
+	DB.Initialize(Main.DBType, Main.DBOpen)
 	DB.Table = "tbl_categories"
-	DB.Find(Id)
+	DB.Find(id)
 	If DB.Found = False Then
 		HRM.ResponseCode = 404
 		HRM.ResponseError = "Category not found"
@@ -245,7 +227,7 @@ Private Sub DeleteCategoryById (Id As Int)
 	End If
 	
 	DB.Reset
-	DB.Id = Id
+	DB.Id = id
 	DB.Delete
 	HRM.ResponseCode = 200
 	HRM.ResponseMessage = "Category deleted successfully"

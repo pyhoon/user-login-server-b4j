@@ -2,7 +2,7 @@
 Group=Handlers
 ModulesStructureVersion=1
 Type=Class
-Version=10
+Version=10.2
 @EndOfDesignText@
 'Api Handler class
 'Version 3.10
@@ -22,8 +22,6 @@ End Sub
 Public Sub Initialize
 	HRM.Initialize
 	HRM.SimpleResponse = Main.conf.SimpleResponse
-	DB.Initialize(Main.DBOpen, Main.DBEngine)
-	DB.ShowExtraLogs = True
 End Sub
 
 Sub Handle (req As ServletRequest, resp As ServletResponse)
@@ -31,7 +29,7 @@ Sub Handle (req As ServletRequest, resp As ServletResponse)
 	Response = resp
 	Method = Request.Method.ToUpperCase
 	Dim FullElements() As String = WebApiUtils.GetUriElements(Request.RequestURI)
-	Elements = WebApiUtils.CropElements(FullElements, 4) ' 4 For Api handler with version
+	Elements = WebApiUtils.CropElements(FullElements, 3) ' 3 For Api handler
 	Select Method
 		Case "GET"
 			'If ElementMatch("") Then
@@ -55,10 +53,10 @@ Sub Handle (req As ServletRequest, resp As ServletResponse)
 				Return
 			End If
 		Case "POST"
-			If ElementMatch("") Then
-				PostUser
-				Return
-			End If
+			'If ElementMatch("") Then
+			'	PostUser
+			'	Return
+			'End If
 			If ElementMatch("register") Then
 				PostRegisterUser
 				Return
@@ -80,10 +78,10 @@ Sub Handle (req As ServletRequest, resp As ServletResponse)
 				Return
 			End If
 		Case "PUT"
-			If ElementMatch("id") Then
-				PutUserById(ElementId)
-				Return
-			End If
+			'If ElementMatch("id") Then
+			'	PutUserById(ElementId)
+			'	Return
+			'End If
 			If ElementMatch("change-password") Then
 				PutChangeUserPassword
 				Return
@@ -92,11 +90,11 @@ Sub Handle (req As ServletRequest, resp As ServletResponse)
 				PutUpdateUserProfile
 				Return
 			End If
-		Case "DELETE"
-			If ElementMatch("id") Then
-				DeleteUserById(ElementId)
-				Return
-			End If
+			'Case "DELETE"
+			'	If ElementMatch("id") Then
+			'		DeleteUserById(ElementId)
+			'		Return
+			'	End If
 		Case Else
 			Log("Unsupported method: " & Method)
 			ReturnMethodNotAllow
@@ -201,7 +199,7 @@ Private Sub ValidateToken (Token As UserData) As Boolean
 End Sub
 
 Private Sub FindUserByAccessToken (Token As String) As UserData
-	DB.SQL = Main.DBOpen
+	DB.Initialize(Main.DBType, Main.DBOpen)
 	DB.Table = "tbl_users"
 	DB.Where = Array("user_token = ?")
 	DB.Parameters = Array(Token)
@@ -321,11 +319,6 @@ Sub SendEmail (NewEmail As EmailData)
 End Sub
 
 Private Sub GetShowUserList
-	' #Authenticate = Token
-	' #Version = v1
-	' #Desc = Show list of all Users
-	' #Elements = ["list"]
-	
 	Log($"${Request.Method}: ${Request.RequestURI}"$)
 	Dim access_token As String = WebApiUtils.RequestBearerToken(Request)
 	Dim user As UserData = FindUserByAccessToken(access_token)
@@ -333,7 +326,7 @@ Private Sub GetShowUserList
 		Return
 	End If
 	
-	Select Main.DBEngine
+	Select Main.DBType
 		Case DB.MYSQL
 			Dim online As String = $"CASE WHEN (TIME_TO_SEC(TIMEDIFF(now(), user_last_login)) < 600)
 			THEN 'Y' ELSE 'N' END AS online,
@@ -344,7 +337,7 @@ Private Sub GetShowUserList
 			(strftime('%s', 'now') - strftime('%s', user_last_login)) AS last_online"$
 	End Select
 
-	DB.SQL = Main.DBOpen
+	DB.Initialize(Main.DBType, Main.DBOpen)
 	DB.Table = "tbl_users"
 	DB.Select = Array("user_email AS email", "user_name AS name", "user_location AS location", online)
 	DB.Query
@@ -356,14 +349,15 @@ Private Sub GetShowUserList
 End Sub
 
 Private Sub GetUserById (Id As Int)
-	' #Hide
-	' #Authenticate = Token
-	' #Version = v1
-	' #Desc = Read one User by id
-	' #Elements = [":id"]
-	DB.SQL = Main.DBOpen
+	Log($"${Request.Method}: ${Request.RequestURI}"$)
+	Dim access_token As String = WebApiUtils.RequestBearerToken(Request)
+	Dim user As UserData = FindUserByAccessToken(access_token)
+	If ValidateToken(user) = False Then
+		Return
+	End If
+	
+	DB.Initialize(Main.DBType, Main.DBOpen)
 	DB.Table = "tbl_Users"
-	'DB.Find(Id)
 	DB.Find2("user_id = ?", Id)
 	If DB.Found Then
 		HRM.ResponseCode = 200
@@ -377,12 +371,8 @@ Private Sub GetUserById (Id As Int)
 End Sub
 
 Private Sub GetActivateUser (ActivationCode As String)
-	' #Version = v1
-	' #Desc = Activate User by Code
-	' #Elements = ["activate", ":code"]
-	
 	Log($"${Request.Method}: ${Request.RequestURI}"$)
-	DB.SQL = Main.DBOpen
+	DB.Initialize(Main.DBType, Main.DBOpen)
 	DB.Table = "tbl_users"
 	DB.Select = Array("user_email", "user_hash", "user_salt", "user_activation_code")
 	DB.Where = Array("user_activation_code = ?")
@@ -407,8 +397,8 @@ Private Sub GetActivateUser (ActivationCode As String)
 		HRM.ResponseObject = user2
 		HRM.ResponseMessage = "User activated successfully"
 	Else
-		HRM.ResponseCode = 404
-		HRM.ResponseError = "User not found"
+		HRM.ResponseCode = 400
+		HRM.ResponseError = "Invalid activation code"
 	End If
 	DB.Close
 	ReturnApiResponse
@@ -420,7 +410,7 @@ Private Sub GetConfirmResetPassword (ResetCode As String)
 	' #Elements = ["confirm-reset", ":code"]
 	
 	Log($"${Request.Method}: ${Request.RequestURI}"$)
-	DB.SQL = Main.DBOpen
+	DB.Initialize(Main.DBType, Main.DBOpen)
 	DB.Table = "tbl_users"
 	DB.Select = Array("user_email", "user_hash", "user_salt", "user_activation_code")
 	DB.Where = Array("user_activation_code = ?")
@@ -463,19 +453,14 @@ Private Sub GetConfirmResetPassword (ResetCode As String)
 		HRM.ResponseObject = user2
 		HRM.ResponseMessage = "Password updated successfully"
 	Else
-		HRM.ResponseCode = 404
-		HRM.ResponseError = "User not found"
+		HRM.ResponseCode = 400
+		HRM.ResponseError = "Invalid reset code"
 	End If
 	DB.Close
 	ReturnApiResponse
 End Sub
 
 Private Sub PostRegisterUser
-	' #Version = v1
-	' #Desc = Register a New User
-	' #Body = {<br>&nbsp; "name": "name",<br>&nbsp; "email": "email",<br>&nbsp; "password": "password"<br>}
-	' #Elements = ["register"]
-	
 	Log($"${Request.Method}: ${Request.RequestURI}"$)
 	Dim data As Map = WebApiUtils.RequestData(Request)
 	If Not(data.IsInitialized) Then
@@ -502,7 +487,7 @@ Private Sub PostRegisterUser
 	Utility.ReMapKey(data, "password", "user_password")
 
 	' Check conflict user account
-	DB.SQL = Main.DBOpen
+	DB.Initialize(Main.DBType, Main.DBOpen)
 	DB.Table = "tbl_users"
 	DB.Where = Array("user_email = ?")
 	DB.Parameters = Array(data.Get("user_email"))
@@ -600,11 +585,6 @@ Private Sub PostRegisterUser
 End Sub
 
 Private Sub PostUserLogin
-	' #Version = v1
-	' #Desc = Retrieve Api Key by Logging in
-	' #Body = {<br>&nbsp;"email": "user_email",<br>&nbsp;"password": "user_password"<br>}
-	' #Elements = ["login"]
-	
 	Log($"${Request.Method}: ${Request.RequestURI}"$)
 	Dim data As Map = WebApiUtils.RequestData(Request)
 	If Not(data.IsInitialized) Then
@@ -631,7 +611,7 @@ Private Sub PostUserLogin
 	Dim user_email As String = data.Get("user_email")
 	Dim user_password As String = data.Get("user_password")
 
-	DB.SQL = Main.DBOpen
+	DB.Initialize(Main.DBType, Main.DBOpen)
 	DB.Table = "tbl_users"
 	DB.Select = Array("user_salt")
 	DB.Where = Array("user_email = ?")
@@ -712,7 +692,7 @@ Private Sub PostUserToken
 	Dim user_email As String = data.Get("user_email")
 	Dim api_key As String = data.Get("user_api_key")
 
-	DB.SQL = Main.DBOpen
+	DB.Initialize(Main.DBType, Main.DBOpen)
 	DB.Table = "tbl_users"
 	DB.Where = Array("user_email = ?", "user_api_key = ?")
 	DB.Parameters = Array(user_email, api_key)
@@ -746,12 +726,6 @@ Private Sub PostUserToken
 End Sub
 
 Private Sub PostReadUserProfile
-	' #Authenticate = Token
-	' #Version = v1
-	' #Desc = Read a User profile
-	' #Body = {<br>&nbsp;"email": "user_email"<br>}
-	' #Elements = ["profile"]
-
 	Log($"${Request.Method}: ${Request.RequestURI}"$)
 	Dim access_token As String = WebApiUtils.RequestBearerToken(Request)
 	Dim user As UserData = FindUserByAccessToken(access_token)
@@ -771,7 +745,7 @@ Private Sub PostReadUserProfile
 	Utility.ReMapKey(data, "email", "user_email")
 	Dim user_email As String = data.Get("user_email")
 	
-	Select Main.DBEngine
+	Select Main.DBType
 		Case DB.MYSQL
 			Dim online As String = $"CASE WHEN (TIME_TO_SEC(TIMEDIFF(now(), user_last_login)) < 600)
 			THEN 'Y' ELSE 'N' END AS online,
@@ -782,7 +756,7 @@ Private Sub PostReadUserProfile
 			(strftime('%s', 'now') - strftime('%s', user_last_login)) AS last_online"$
 	End Select
 	
-	DB.SQL = Main.DBOpen
+	DB.Initialize(Main.DBType, Main.DBOpen)
 	DB.Table = "tbl_users"
 	DB.Select = Array("user_name", _
 	"user_email", _
@@ -813,11 +787,6 @@ Private Sub PostReadUserProfile
 End Sub
 
 Private Sub PostResetUserPassword
-	' #Version = v1
-	' #Desc = Reset User password
-	' #Body = {<br>&nbsp;"email": "user_email"<br>}
-	' #Elements = ["reset-password"]
-
 	Log($"${Request.Method}: ${Request.RequestURI}"$)
 	Dim data As Map = WebApiUtils.RequestData(Request)
 	If Not(data.IsInitialized) Then
@@ -842,7 +811,7 @@ Private Sub PostResetUserPassword
 	Utility.ReMapKey(data, "email", "user_email")
 	Dim user_email As String = data.Get("user_email")
 	
-	DB.SQL = Main.DBOpen
+	DB.Initialize(Main.DBType, Main.DBOpen)
 	DB.Table = "tbl_users"
 	DB.Where = Array("user_email = ?")
 	DB.Parameters = Array(user_email)
@@ -934,7 +903,7 @@ Private Sub PutUpdateUserProfile
 	Values.Add(user.UserEmail)
 	Values.Add(user.UserToken)
 	
-	DB.SQL = Main.DBOpen
+	DB.Initialize(Main.DBType, Main.DBOpen)
 	DB.Table = "tbl_users"
 	DB.UpdateModifiedDate = True
 	DB.Columns = Columns
@@ -956,12 +925,6 @@ Private Sub PutUpdateUserProfile
 End Sub
 
 Private Sub PutChangeUserPassword
-	' #Authenticate = Token
-	' #Version = v1
-	' #Desc = Update User password
-	' #Body = {<br>&nbsp;"old": "current_password",<br>&nbsp;"new": "change_password"<br>}
-	' #Elements = ["change-password"]
-	
 	Log($"${Request.Method}: ${Request.RequestURI}"$)
 	Dim access_token As String = WebApiUtils.RequestBearerToken(Request)
 	Dim user As UserData = FindUserByAccessToken(access_token)
@@ -992,7 +955,7 @@ Private Sub PutChangeUserPassword
 	Dim current_password As String = data.Get("old")
 	Dim change_password As String = data.Get("new")
 	
-	DB.SQL = Main.DBOpen
+	DB.Initialize(Main.DBType, Main.DBOpen)
 	DB.Table = "tbl_users"
 	DB.Select = Array("user_salt")
 	DB.Where = Array("user_email = ?")
@@ -1069,164 +1032,4 @@ Private Sub PutChangeUserPassword
 	HRM.ResponseObject = user2
 	DB.Close
 	ReturnApiResponse
-End Sub
-
-Private Sub PostUser
-	' #Hide
-	' #Authenticate = Token
-	' #Version = v1
-	' #Desc = Add a new User
-	' #Body = {<br>&nbsp; "name": "User_name"<br>}
-	
-	Log($"${Request.Method}: ${Request.RequestURI}"$)
-	Dim data As Map = WebApiUtils.RequestData(Request)
-	If Not(data.IsInitialized) Then
-		HRM.ResponseCode = 400
-		HRM.ResponseError = "Invalid json object"
-		ReturnApiResponse
-		Return
-	End If
-
-	' Deprecated: Make it compatible with Web API Client v1 (will be removed)
-	If data.ContainsKey("name") Then
-		data.Put("User_name", data.Get("name"))
-		data.Remove("name")
-	End If
-	
-	' Check whether required keys are provided
-	If data.ContainsKey("User_name") = False Then
-		HRM.ResponseCode = 400
-		HRM.ResponseError = "Key 'User_name' not found"
-		ReturnApiResponse
-		Return
-	End If
-	
-	' Check conflict User name
-	DB.SQL = Main.DBOpen
-	DB.Table = "tbl_users"
-	DB.Where = Array("user_name = ?")
-	DB.Parameters = Array As String(data.Get("User_name"))
-	DB.Query
-	If DB.Found Then
-		HRM.ResponseCode = 409
-		HRM.ResponseError = "User already exist"
-		ReturnApiResponse
-		DB.Close
-		Return
-	End If
-	
-	' Insert new row
-	DB.Reset
-	DB.Columns = Array("user_name", "created_date")
-	DB.Parameters = Array(data.Get("user_name"), data.GetDefault("created_date", WebApiUtils.CurrentDateTime))
-	DB.Save3("user_id")
-	
-	' Retrieve new row
-	HRM.ResponseCode = 201
-	HRM.ResponseObject = DB.First
-	HRM.ResponseMessage = "User created successfully"
-	ReturnApiResponse
-	DB.Close
-End Sub
-
-Private Sub PutUserById (Id As Int)
-	' #Hide
-	' #Authenticate = Token
-	' #Version = v1
-	' #Desc = Update User by id
-	' #Body = {<br>&nbsp; "name": "User_name"<br>}
-	' #Elements = [":id"]
-	
-	Log($"${Request.Method}: ${Request.RequestURI}"$)
-	Dim data As Map = WebApiUtils.RequestData(Request)
-	If Not(data.IsInitialized) Then
-		HRM.ResponseCode = 400
-		HRM.ResponseError = "Invalid json object"
-		ReturnApiResponse
-		Return
-	End If
-
-	' Deprecated: Make it compatible with Web API Client v1 (will be removed)
-	If data.ContainsKey("name") Then
-		data.Put("user_name", data.Get("name"))
-		data.Remove("name")
-	End If
-	
-	' Check whether required keys are provided
-	If data.ContainsKey("user_name") = False Then
-		HRM.ResponseCode = 400
-		HRM.ResponseError = "Key 'user_name' not found"
-		ReturnApiResponse
-		Return
-	End If
-	
-	' Check conflict User name
-	DB.SQL = Main.DBOpen
-	DB.Table = "tbl_users"
-	'DB.Where = Array("user_name = ?", "id <> ?")
-	DB.Where = Array("user_name = ?", "user_id <> ?")
-	DB.Parameters = Array As String(data.Get("user_name"), Id)
-	DB.Query
-	If DB.Found Then
-		HRM.ResponseCode = 409
-		HRM.ResponseError = "User already exist"
-		ReturnApiResponse
-		DB.Close
-		Return
-	End If
-	
-	'DB.Find(Id)
-	DB.Find2("user_id = ?", Id)
-	If DB.Found = False Then
-		HRM.ResponseCode = 404
-		HRM.ResponseError = "User not found"
-		ReturnApiResponse
-		DB.Close
-		Return
-	End If
-
-	DB.Reset
-	DB.Columns = Array("user_name", _
-	"modified_date")
-	DB.Parameters = Array(data.Get("user_name"), _
-	data.GetDefault("created_date", WebApiUtils.CurrentDateTime))
-	'DB.Id = Id
-	DB.WhereParams(Array("user_id = ?"), Array(Id))
-	DB.Save
-
-	HRM.ResponseCode = 200
-	HRM.ResponseMessage = "User updated successfully"
-	HRM.ResponseObject = DB.First
-	ReturnApiResponse
-	DB.Close
-End Sub
-
-Private Sub DeleteUserById (Id As Int)
-	' #Hide
-	' #Authenticate = Token
-	' #Version = v1
-	' #Desc = Delete User by id
-	' #Elements = [":id"]
-	
-	Log($"${Request.Method}: ${Request.RequestURI}"$)
-	DB.SQL = Main.DBOpen
-	DB.Table = "tbl_Users"
-	'DB.Find(Id)
-	DB.Find2("user_id = ?", Id)
-	If DB.Found = False Then
-		HRM.ResponseCode = 404
-		HRM.ResponseError = "User not found"
-		ReturnApiResponse
-		DB.Close
-		Return
-	End If
-	
-	DB.Reset
-	'DB.Id = Id
-	DB.WhereParam("user_id = ?", Id)
-	DB.Delete
-	HRM.ResponseCode = 200
-	HRM.ResponseMessage = "User deleted successfully"
-	ReturnApiResponse
-	DB.Close
 End Sub

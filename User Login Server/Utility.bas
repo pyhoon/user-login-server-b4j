@@ -2,10 +2,10 @@
 Group=App
 ModulesStructureVersion=1
 Type=StaticCode
-Version=10
+Version=10.2
 @EndOfDesignText@
 'Utility code module
-'Version 3.30
+'Version 3.10
 Sub Process_Globals
 	
 End Sub
@@ -38,7 +38,7 @@ Public Sub ReMapKey (map As Map, key1 As String, key2 As String)
 End Sub
 
 Public Sub CurrentTimeStamp As String
-	Select Main.DBEngine.ToUpperCase
+	Select Main.DBType.ToUpperCase
 		Case "MYSQL"
 			Return "NOW()"
 		Case "SQLITE"
@@ -49,7 +49,7 @@ Public Sub CurrentTimeStamp As String
 End Sub
 
 Public Sub CurrentTimeStampAddMinute (Value As Int) As String
-	Select Main.DBEngine.ToUpperCase
+	Select Main.DBType.ToUpperCase
 		Case "MYSQL"
 			Return $"DATE_ADD(NOW(), INTERVAL ${Value} MINUTE)"$
 		Case "SQLITE"
@@ -677,21 +677,21 @@ Public Sub GenerateJSFileForSearch (DirName As String, FileName As String, Simpl
   var form = $("#add_form")
   form.validate({
     rules: {
-      code: {
+      product_code: {
         required: true,
         minlength: 3
       },
-      name: {
+      product_name: {
         required: true
       },
       action: "required"
     },
     messages: {
-      code: {
+      product_code: {
         required: "Please enter Product Code",
         minlength: "Value must be at least 3 characters"
       },
-      name: {
+      product_name: {
         required: "Please enter Product Name"
       },
       action: "Please provide some data"
@@ -719,21 +719,21 @@ Public Sub GenerateJSFileForSearch (DirName As String, FileName As String, Simpl
   var form = $("#update_form")
   form.validate({
     rules: {
-      code: {
+      product_code: {
         required: true,
         minlength: 3
       },
-      name: {
+      product_name: {
         required: true
       },
       action: "required"
     },
     messages: {
-      code: {
+      product_code: {
         required: "Please enter Product Code",
         minlength: "Value must be at least 3 characters"
       },
-      name: {
+      product_name: {
         required: "Please enter Product Name"
       },
       action: "Please provide some data"

@@ -2,18 +2,26 @@
 Group=Handlers
 ModulesStructureVersion=1
 Type=Class
-Version=9.1
+Version=10.2
 @EndOfDesignText@
 'Help Handler class
 'Version 3.10
 Sub Class_Globals
 	Private Request As ServletRequest 'ignore
 	Private Response As ServletResponse
-	Type VerbSection (Verb As String, Color As String, ElementId As String, Link As String, FileUpload As String, Authenticate As String, Description As String, Params As String, Body As String, Expected As String, InputDisabled As Boolean, DisabledBackground As String, Raw As Boolean)
+	Private Handlers As List
+	Private AllMethods As List
+	Private AllGroups As Map
+	Type VerbSection (Verb As String, Color As String, ElementId As String, Link As String, FileUpload As String, Authenticate As String, Description As String, Params As String, Body As String, Expected As String, InputDisabled As Boolean, DisabledBackground As String, Raw As Boolean, Noapi As Boolean)
 End Sub
 
 Public Sub Initialize
-
+	AllMethods.Initialize
+	AllGroups.Initialize
+	Handlers.Initialize
+	Handlers.Add("CategoriesApiHandler")
+	Handlers.Add("ProductsApiHandler")
+	Handlers.Add("FindApiHandler")
 End Sub
 
 Sub Handle (req As ServletRequest, resp As ServletResponse)
@@ -24,268 +32,276 @@ End Sub
 
 Private Sub ShowHelpPage
 	#If Debug
-	' Generate API Documentation from API Handler Classes
-	Dim strContents As String = ReadHandlers(File.DirApp.Replace("\Objects", ""))
-	If File.Exists(File.DirApp, "help.html") = False Then
-		WebApiUtils.WriteTextFile("help.html", strContents)
-	End If
-	#Else
-	If File.Exists(File.DirApp, "help.html") Then
-		Dim strContents As String = File.ReadString(File.DirApp, "help.html")
-	End If
+	'ReadHandlers ' Read from source (optional) - comment hashtags are required
 	#End If
-	Dim strMain As String = WebApiUtils.BuildDocView(WebApiUtils.ReadTextFile("main.html"), strContents)
-	' Requires Hasher
-	' Store csrf_token inside server session variables
-	'Dim HSR As Hasher
-	'HSR.Initialize
-	'Dim csrf_token As String = HSR.RandomHash2
-	'Request.GetSession.SetAttribute(Main.PREFIX & "csrf_token", csrf_token)
-	' Append csrf_token into page header. Comment this line to check
-	'strMain = WebApiUtils.BuildCsrfToken(strMain, csrf_token)
+	BuildMethods ' Build page programatically
+	Dim Contents As String = GenerateHtml
+	Dim strMain As String = WebApiUtils.ReadTextFile("main.html")
+	strMain = WebApiUtils.BuildDocView(strMain, Contents)
 	strMain = WebApiUtils.BuildTag(strMain, "HELP", "") ' Hide API icon
 	strMain = WebApiUtils.BuildHtml(strMain, Main.ctx)
-	strMain = WebApiUtils.BuildScript(strMain, $"<script src="${Main.conf.ServerUrl}/assets/scripts/help${IIf(Main.conf.SimpleResponse.Enable, ".simple", "")}.js"></script>"$)
+	strMain = WebApiUtils.BuildScript(strMain, $"<script src="${Main.conf.ServerUrl}/assets/scripts/help.js"></script>"$)
 	WebApiUtils.ReturnHtml(strMain, Response)
 End Sub
 
-Public Sub ReadHandlers (FileDir As String) As String
-	Log(TAB)
-	Log("Generating Help page ...")
-	Dim verbs(4) As String = Array As String("GET", "POST", "PUT", "DELETE")
-	'Dim DocumentedHandlers As List
-	'DocumentedHandlers.Initialize
-	Dim Handlers As List
-	Handlers.Initialize
-	Handlers.Add("UsersApiHandler")
-	Handlers.Add("CategoriesApiHandler")
-	Handlers.Add("ProductsApiHandler")
-	Handlers.Add("FindApiHandler")
-	'For i = 0 To Handlers.Size - 1
-	'	Dim TempHandler As String = Handlers.Get(i)
-	'	' Avoid duplicate items
-	'	If DocumentedHandlers.IndexOf(TempHandler) = -1 Then ' bug 2022-08-29: Section(1) has double quotes
-	'		DocumentedHandlers.Add(TempHandler)
-	'	End If
-	'Next
-	Dim strHtml As String
-	For Each Handler As String In Handlers 'DocumentedHandlers
-		Dim Methods As List
-		Methods.Initialize
-
-		Dim SubStartsWithGet As List
-		SubStartsWithGet.Initialize
-	
-		Dim SubStartsWithPost As List
-		SubStartsWithPost.Initialize
-	
-		Dim SubStartsWithPut As List
-		SubStartsWithPut.Initialize
-	
-		Dim SubStartsWithDelete As List
-		SubStartsWithDelete.Initialize
-	
-		Dim VerbSubs As List
-		VerbSubs.Initialize
-		VerbSubs.Add(CreateMap(SubStartsWithGet: "SubStartsWithGet"))
-		VerbSubs.Add(CreateMap(SubStartsWithPost: "SubStartsWithPost"))
-		VerbSubs.Add(CreateMap(SubStartsWithPut: "SubStartsWithPut"))
-		VerbSubs.Add(CreateMap(SubStartsWithDelete: "SubStartsWithDelete"))
-
-		Dim HandlerName As String = Handler.Replace("Handler", "")
-		HandlerName = HandlerName.Replace("Api", "")
-		HandlerName = HandlerName.Replace("Web", "")
-		strHtml = strHtml & GenerateHeaderByHandler(HandlerName)
-		
-		Dim List2 As List
-		List2 = File.ReadList(FileDir, Handler & ".bas")
-		For i = 0 To List2.Size - 1
-			If List2.Get(i).As(String).StartsWith("'") Or List2.Get(i).As(String).StartsWith("#") Then
-				' Ignore the line
-			Else
-				Dim index As Int = List2.Get(i).As(String).ToLowerCase.IndexOf("sub ") 'bug: desc may contain word like subject, so check "sub "
-				If index > -1 Then
-					Dim Line2 As String = List2.Get(i).As(String).SubString(index).Replace("Sub ", "").Trim
-					For Each SubMap As Map In VerbSubs
-						For Each val As String In SubMap.Values
-							For Each verb In verbs
-								If val.ToUpperCase.EndsWith(verb) And Line2.ToUpperCase.StartsWith(verb) Then
-									For Each key As List In SubMap.Keys
-										' Check commented code in between and ignore the rest of the code
-										If Line2.IndexOf("'") > -1 Then
-											Line2 = Line2.Replace(Line2.SubString(Line2.IndexOf("'")), "")
-										End If
-										If Line2.Contains("(") Then ' take 1st occurence
-											Dim Arguments As String = Line2.SubString2(Line2.IndexOf("("), Line2.LastIndexOf(")")+1)
-											Line2 = Line2.Replace(Arguments, "")
-											Arguments = Arguments.Replace("(", "").Replace(")", "")
-											Dim prm() As String
-											prm = Regex.Split(",", Arguments)
-											Dim plist As List
-											plist.Initialize2(prm)
-										Else
-											Dim Arguments As String
-											Dim plist As List
-											plist.Initialize
-										End If
-										key.Add(Line2)
-
-										Dim MethodProperties As Map = CreateMap("Verb": verb, "Method": Line2, "Args": Arguments, "Prm": plist, "Body": "&nbsp;", "Noapi": False, "Format": "")
-										Methods.Add(MethodProperties)
-									Next
-								End If
-							Next
-						Next
-					Next
-				Else
-					' =====================================================================
-					' Detect commented hashtags inside Handler
-					' =====================================================================
-					' CAUTION: Do not use commented hashtag keyword inside non-verb subs!
-					' =====================================================================
-					' Supported hashtag keywords: (case-insensitive)
-					' #name (formerly #plural)
-					' #version
-					' #desc
-					' #body
-					' #elements
-					' #defaultformat
-					' #upload
-					' #authenticate
-					'
-					' Single keywords:
-					' #hide
-					' #noapi
-					
-					Dim Line3 As String = List2.Get(i).As(String)
-					If Line3.IndexOf("'") > -1 Then
-						' search for Version
-						If Line3.ToLowerCase.IndexOf("#version") > -1 Then
-							Dim ver() As String
-							ver = Regex.Split("=", Line3)
-							If ver.Length = 2 Then
-								Dim Map3 As Map = Methods.Get(Methods.Size-1)
-								Map3.Put("Version", ver(1).Trim)
-							End If
-						End If
-						
-						' search for Desc
-						If Line3.ToLowerCase.IndexOf("#desc") > -1 Then
-							Dim desc() As String
-							desc = Regex.Split("=", Line3)
-							If desc.Length = 2 Then
-								Dim Map3 As Map = Methods.Get(Methods.Size-1)
-								Map3.Put("Desc", desc(1).Trim)
-							End If
-						End If
-						
-						' search for Elements
-						If Line3.ToLowerCase.IndexOf("#elements") > -1 Then
-							Dim Elements() As String
-							Elements = Regex.Split("=", Line3)
-							If Elements.Length = 2 Then
-								Dim Map3 As Map = Methods.Get(Methods.Size-1)
-								Dim List3 As List = Elements(1).Trim.As(JSON).ToList
-								Map3.Put("Elements", List3)
-							End If
-						End If
-						
-						' search for Body
-						If Line3.ToLowerCase.IndexOf("#body") > -1 Then
-							Dim body() As String
-							body = Regex.Split("=", Line3)
-							If body.Length = 2 Then
-								Dim Map3 As Map = Methods.Get(Methods.Size-1)
-								Map3.Put("Body", body(1).Trim)
-							End If
-						End If
-
-						' search for Name
-						If Line3.ToLowerCase.IndexOf("#name") > -1 Then
-							Dim name() As String
-							name = Regex.Split("=", Line3)
-							If name.Length = 2 Then
-								' Override Handler with name
-								Dim Map3 As Map = Methods.Get(Methods.Size-1)
-								Map3.Put("Handler", name(1).Trim)
-							End If
-						End If
-
-						' search for Hide
-						If Line3.ToLowerCase.IndexOf("#hide") > -1 Then
-							Dim Map3 As Map = Methods.Get(Methods.Size-1)
-							Map3.Put("Hide", True)
-						End If
-						
-						' search for Noapi
-						If Line3.ToLowerCase.IndexOf("#noapi") > -1 Then
-							Dim Map3 As Map = Methods.Get(Methods.Size-1)
-							Map3.Put("Noapi", True)
-						End If
-						
-						' search for Upload
-						If Line3.ToLowerCase.IndexOf("#upload") > -1 Then
-							Dim upd() As String
-							upd = Regex.Split("=", Line3)
-							If upd.Length = 2 Then
-								Dim Map3 As Map = Methods.Get(Methods.Size-1)
-								Map3.Put("Upload", upd(1).Trim)
-							End If
-						End If
-						
-						' search for Authenticate
-						If Line3.ToLowerCase.IndexOf("#authenticate") > -1 Then
-							Dim aut() As String
-							aut = Regex.Split("=", Line3)
-							If aut.Length = 2 Then
-								Dim Map3 As Map = Methods.Get(Methods.Size-1)
-								Map3.Put("Authenticate", aut(1).Trim)
-							End If
-						End If
-						
-						' search for DefaultFormat
-						If Line3.ToLowerCase.IndexOf("#defaultformat") > -1 Then
-							Dim fmt() As String
-							fmt = Regex.Split("=", Line3)
-							If fmt.Length = 2 Then
-								Dim Map3 As Map = Methods.Get(Methods.Size-1)
-								If fmt(1).Trim = "raw" Then
-									Map3.Put("Format", "raw")
-								End If
-							End If
-						End If
-					End If
+Private Sub GenerateHtml As String
+	For Each method As Map In AllMethods ' Avoid duplicate groups
+		AllGroups.Put(method.Get("Group"), "unused")
+	Next
+	Dim Html As StringBuilder
+	Html.Initialize
+	For Each GroupName As String In AllGroups.Keys
+		Html.Append(GenerateHeaderByGroup(GroupName))
+		For Each method As Map In AllMethods
+			If method.Get("Group") = GroupName Then
+				If method.ContainsKey("Hide") = False Then ' Skip Hidden sub
+					Html.Append(GenerateDocItem(method))
 				End If
 			End If
 		Next
-				
-		For Each m As Map In Methods
-			Dim MM(2) As String
-			MM = Regex.Split(" As ", m.Get("Method")) ' Ignore return type
-			m.Put("Method", MM(0).Trim)
-			If m.ContainsKey("Hide") Then Continue ' Skip Hidden sub
-			' Default Handler for singular
-			If m.ContainsKey("Handler") = False Then m.Put("Handler", HandlerName)
-			strHtml = strHtml & GenerateDocItem(m)
-		Next
+	Next
+	Return Html.ToString
+End Sub
 
-		' Retain this part for debugging purpose
+Private Sub FindMethod (MethodName As String) As Int
+	For i = 0 To AllMethods.Size - 1
+		Dim Method As Map = AllMethods.Get(i)
+		If Method.Get("Method") = MethodName Then
+			'Log(Method.Get("Method"))
+			Return i
+		End If
+	Next
+	Return -1
+End Sub
+
+Private Sub RetrieveMethod (GroupName As String, MethodLine As String) As Map 'ignore
+	Dim index As Int = FindMethod(ExtractMethod(MethodLine))
+	If index > -1 Then
+		Return AllMethods.Get(index)
+	Else
+		Return CreateMethodProperties(GroupName, MethodLine)
+	End If
+End Sub
+
+' Use this sub if you are calling BuildMethods after calling ReadHandlers in Debug to override method properties
+' Order in list is preserved
+Private Sub ReplaceMethod (Method As Map) 'ignore
+	' Replacement will failed if the Method name cannot be found
+	Dim index As Int = FindMethod(Method.Get("Method"))
+	If index > -1 Then
+		AllMethods.RemoveAt(index)
+		AllMethods.InsertAt(index, Method)
+	Else
+		AllMethods.Add(Method)
+	End If
+End Sub
+
+Private Sub RemoveMethodAndReAdd (Method As Map) 'ignore
+	Dim index As Int = FindMethod(Method.Get("Method"))
+	If index > -1 Then
+		AllMethods.RemoveAt(index)
+	End If
+	AllMethods.Add(Method) ' Add at the end of list
+End Sub
+
+Private Sub BuildMethods
+	Dim Method As Map = CreateMethodProperties("Users", "GetShowUserList")
+	Method.Put("Authenticate", "Token")
+	Method.Put("Desc", "Show list of all Users")
+	Method.Put("Elements", $"["list"]"$)
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Users", "GetUserById (Id As Int)")
+	'Method.Put("Hide", "")
+	Method.Put("Authenticate", "Token")
+	Method.Put("Desc", "Read one User by id")
+	Method.Put("Elements", $"["{id}"]"$)
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Users", "GetActivateUser (ActivationCode As String)")
+	Method.Put("Desc", "Activate User by Code")
+	Method.Put("Elements", $"["activate", ":code"]"$)
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Users", "GetConfirmResetPassword (ResetCode As String)")
+	Method.Put("Desc", "Confirm reset User password by Reset Code")
+	Method.Put("Elements", $"["confirm-reset", ":code"]"$)
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Users", "PostRegisterUser")
+	Method.Put("Desc", "Register a New User")
+	Method.Put("Elements", $"["register"]"$)
+	Method.Put("Body", $"{
+  "name": "name",
+  "email": "email",
+  "password": "password"
+}"$)
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Users", "PostUserLogin")
+	Method.Put("Desc", "Retrieve Api Key by Logging in")
+	Method.Put("Elements", $"["login"]"$)
+	Method.Put("Body", $"{
+  "email": "user_email",
+  "password": "user_password"
+}"$)
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Users", "PostUserToken")
+	Method.Put("Desc", "Get User Token")
+	Method.Put("Elements", $"["token"]"$)
+	Method.Put("Body", $"{
+  "email": "user_email",
+  "apikey": "api_key"
+}"$)
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Users", "PostReadUserProfile")
+	Method.Put("Authenticate", "Token")
+	Method.Put("Desc", "Read a User profile")
+	Method.Put("Elements", $"["profile"]"$)
+	Method.Put("Body", $"{
+  "email": "user_email"
+}"$)
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Users", "PostResetUserPassword")
+	Method.Put("Desc", "Reset User password")
+	Method.Put("Elements", $"["reset-password"]"$)
+	Method.Put("Body", $"{
+  "email": "user_email"
+}"$)
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Users", "PutUpdateUserProfile")
+	Method.Put("Authenticate", "Token")
+	Method.Put("Desc", "Update User name and location data")
+	Method.Put("Elements", $"["update-profile"]"$)
+	Method.Put("Body", $"{
+  "name": "user_name",
+  "location": "location"
+}"$)
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Users", "PutChangeUserPassword")
+	Method.Put("Authenticate", "Token")
+	Method.Put("Desc", "Update User password")
+	Method.Put("Elements", $"["change-password"]"$)
+	Method.Put("Body", $"{
+  "old": "current_password",
+  "new": "change_password"
+}"$)
+	AllMethods.Add(Method)
+
+	Dim Method As Map = CreateMethodProperties("Categories", "GetCategories")
+	Method.Put("Desc", "Read all Categories")
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Categories", "GetCategoryById (id As Int)")
+	Method.Put("Desc", "Read one Category by id")
+	Method.Put("Elements", $"["{id}"]"$)
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Categories", "CreateNewCategory '#POST")
+	Method.Put("Desc", "Add new Category")
+	Dim BodyMap As Map = CreateMap("category_name": "category_name")
+	Method.Put("Body", BodyMap.As(JSON).ToString)
+	AllMethods.Add(Method)
+
+	Dim Method As Map = CreateMethodProperties("Categories", "UpdateCategoryById (id As Int) '#PUT")
+	Method.Put("Desc", "Update Category by id")
+	Method.Put("Elements", $"["{id}"]"$)
+	Dim BodyMap As Map = CreateMap("category_name": "category_name")
+	Method.Put("Body", BodyMap.As(JSON).ToString)
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Categories", "DeleteCategoryById (id As Int)")
+	Method.Put("Desc", "Delete Category by id")
+	Method.Put("Elements", $"["{id}"]"$)
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Products", "GetProducts")
+	Method.Put("Desc", "Read all Products")
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Products", "GetProductById (id As Int)")
+	Method.Put("Desc", "Read one Product by id")
+	Method.Put("Elements", $"["{id}"]"$)
+	AllMethods.Add(Method)
+
+	Dim Method As Map = CreateMethodProperties("Products", "PostProduct")
+	Method.Put("Desc", "Add new Product")
+	Method.Put("Body", $"{<br>&nbsp; "category_id": 1,<br>&nbsp; "product_code": "CODE",<br>&nbsp; "product_name": "ProductName",<br>&nbsp; "product_price": 0<br>}"$)
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Products", "PutProductById (id As Int)")
+	Method.Put("Desc", "Update Product by id")
+	Method.Put("Body", $"{<br>&nbsp; "category_id": 1,<br>&nbsp; "product_code": "CODE",<br>&nbsp; "product_name": "ProductName",<br>&nbsp; "product_price": 10<br>}"$)
+	Method.Put("Elements", $"["{id}"]"$)
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Products", "DeleteProductById (id As Int)")
+	Method.Put("Desc", "Delete Product by id")
+	Method.Put("Elements", $"["{id}"]"$)
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Find", "GetAllProducts")
+	Method.Put("Desc", "Get all Products (with Category name)")
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Find", "GetProductsByCategoryId (id As Int)")
+	Method.Put("Desc", "Get all Products by Category Id (with Category name)")
+	Method.Put("Elements", $"["products-by-category_id", "{id}"]"$)
+	AllMethods.Add(Method)
+	
+	Dim Method As Map = CreateMethodProperties("Find", "SearchByKeywords ' #post")
+	Dim BodyMap As Map = CreateMap("keywords": "search words")
+	Method.Put("Body", BodyMap.As(JSON).ToString)
+	Method.Put("Desc", "Filter Products (with Category name)")
+	Dim Expected As StringBuilder
+	Expected.Initialize
+	Expected.Append("200 Success")
+	Expected.Append("<br/>400 Bad Request")
+	Expected.Append("<br/>404 Not found")
+	Expected.Append("<br/>422 Error execute query")
+	Method.Put("Expected", Expected.ToString)
+	AllMethods.Add(Method)
+End Sub
+
+Private Sub ReadHandlers 'ignore
+	Dim verbs() As String = Array As String("GET", "POST", "PUT", "DELETE")
+	For Each Handler As String In Handlers
+		Dim Methods As List
+		Methods.Initialize
+		Dim Group As String = Handler.Replace("Handler", "").Replace("Api", "").Replace("Web", "")
+		Dim lines As List = File.ReadList(File.DirApp.Replace("\Objects", ""), Handler & ".bas")
+		For Each line As String In lines
+			If line.StartsWith("'") Or line.StartsWith("#") Then Continue
+			Dim index As Int = line.toLowerCase.IndexOf("sub ")
+			If index > -1 Then
+				Dim MethodLine As String = line.SubString(index).Replace("Sub ", "").Trim
+				For Each verb As String In verbs
+					If MethodLine.ToUpperCase.StartsWith(verb) Or MethodLine.ToUpperCase.Contains("#" & verb) Then
+						'RemoveComment(MethodLine)
+						Dim Method As Map = CreateMethodProperties(Group, MethodLine)
+						Methods.Add(Method)
+						AllMethods.Add(Method)
+					End If
+				Next
+			Else
+				If line.Contains("'") And line.Contains("#") Then
+					' Detect commented hashtags inside Handler
+					ParseHashtags(line, Methods)
+				End If
+			End If
+		Next
+		'' Retain this part for debugging purpose
 		'#If DEBUG
 		'For Each m As Map In Methods
 		'	Log(" ")
 		'	Log("[" & m.Get("Verb") & "]")
-		'	Log(m.Get("Method"))
-		'	Dim MM(2) As String
-		'	MM = Regex.Split(" As ", m.Get("Method")) ' Ignore return type
-		'	Log("Sub Name: " & MM(0).Trim)
-		'	Dim Lst As List
-		'	Lst.Initialize
-		'	Lst = m.Get("Prm")
-		'	For i = 0 To Lst.Size - 1
-		'		Dim pm() As String
-		'		pm = Regex.Split(" as ", Lst.Get(i).As(String).ToLowerCase)
-		'		Log(pm(0).Trim & " [" & pm(1).Trim & "]")
-		'	Next
+		'	Log("Method: " & m.Get("Method"))
+		'	Log("Params: " & m.Get("Params"))
 		'	Log("Hide: " & m.Get("Hide"))
 		'	Log("Plural: " & m.Get("Plural"))
 		'	Log("Elements: " & m.Get("Elements"))
@@ -295,8 +311,135 @@ Public Sub ReadHandlers (FileDir As String) As String
 		'Next
 		'#End If
 	Next
-	Log($"Help page has been generated."$)
-	Return strHtml
+End Sub
+
+Private Sub ParseHashtags (lineContent As String, methodList As List)
+	' =====================================================================
+	' Detect commented hashtags inside Handler
+	' =====================================================================
+	' CAUTION: Do not use commented hashtag keyword inside non-verb subs!
+	' =====================================================================
+	' Supported hashtag keywords: (case-insensitive)
+	' #name (formerly #plural)
+	' #version
+	' #desc
+	' #body
+	' #elements
+	' #format  (formerly #defaultformat)
+	' #upload
+	' #authenticate
+	'
+	' Single keywords:
+	' #hide
+	' #noapi
+	Dim HashTags1() As String = Array As String("Hide", "Noapi")
+	Dim HashTags2() As String = Array As String("Version", "Desc", "Elements", "Body", "Group", "Upload", "Authenticate", "Format")
+	
+	For Each Tag As String In HashTags1
+		If lineContent.ToLowerCase.IndexOf("#" & Tag.ToLowerCase) > -1 Then
+			Dim lastMethod As Map = methodList.Get(methodList.Size - 1)
+			lastMethod.Put(Tag, True)
+		End If
+	Next
+	For Each Tag As String In HashTags2
+		If lineContent.ToLowerCase.IndexOf("#" & Tag.ToLowerCase) > -1 Then
+			Dim str() As String = Regex.Split("=", lineContent)
+			If str.Length > 1 Then ' fixed bug Desc contains equal sign
+				Dim lastMethod As Map = methodList.Get(methodList.Size - 1)
+				lastMethod.Put(Tag, lineContent.SubString(lineContent.IndexOf("=") + 1).Trim)
+			End If
+		End If
+	Next
+End Sub
+
+Private Sub RemoveComment (Line As String) As String
+	' Clean up comment on the right of a sub
+	If Line.Contains("'") Then
+		Line = Line.SubString2(0, Line.IndexOf("'"))
+	End If
+	Return Line
+End Sub
+
+Private Sub RemoveReturnType (Line As String) As String
+	' Clean up As type on the right of a sub
+	If Line.ToLowerCase.Contains(" as ") Then
+		Dim index As Int = Line.ToLowerCase.IndexOf(" as ")
+		Line = Line.SubString2(0, index)
+	End If
+	Return Line
+End Sub
+
+Private Sub CreateMethodProperties (groupName As String, methodLine As String) As Map
+	Dim methodProps As Map
+	methodProps.Initialize
+	methodProps.Put("Group", groupName)
+	methodProps.Put("Method", ExtractMethod(methodLine))
+	methodProps.Put("Desc", methodProps.Get("Method"))
+	methodProps.Put("Verb", ExtractVerb(methodLine))
+	methodProps.Put("Params", ExtractParams(methodLine))
+	methodProps.Put("Body", "&nbsp;")
+	methodProps.Put("Noapi", False)
+	methodProps.Put("Format", "")
+	Return methodProps
+End Sub
+
+Private Sub ExtractMethod (methodLine As String) As String
+	' Take the method name only without arguments
+	methodLine = RemoveComment(methodLine)
+	methodLine = RemoveReturnType(methodLine)
+	Dim index As Int = methodLine.IndexOf("(")
+	If index > -1 Then
+		Return methodLine.SubString2(0, index).Trim
+	Else
+		Return methodLine.Trim
+	End If
+End Sub
+
+Private Sub ExtractVerb (methodLine As String) As String
+	' Determine the HTTP verb based on the method name
+	Dim MethodVerb As String
+	If methodLine.ToUpperCase.StartsWith("GET") Then
+		MethodVerb = "GET"
+	Else If methodLine.ToUpperCase.StartsWith("POST") Then
+		MethodVerb = "POST"
+	Else If methodLine.ToUpperCase.StartsWith("PUT") Then
+		MethodVerb = "PUT"
+	Else If methodLine.ToUpperCase.StartsWith("DELETE") Then
+		MethodVerb = "DELETE"
+	End If
+	' Override if #hashtag comment exists
+	Select True
+		Case methodLine.ToUpperCase.Contains("#GET")
+			MethodVerb = "GET"
+		Case methodLine.ToUpperCase.Contains("#POST")
+			MethodVerb = "POST"
+		Case methodLine.ToUpperCase.Contains("#PUT")
+			MethodVerb = "PUT"
+		Case methodLine.ToUpperCase.Contains("#DELETE")
+			MethodVerb = "DELETE"
+	End Select
+	Return MethodVerb
+End Sub
+
+Private Sub ExtractParams (methodLine As String) As String
+	' Extract method parameters if any
+	Dim indexBegin As Int = methodLine.IndexOf("(")
+	'Dim indexEnd As Int = methodLine.LastIndexOf(")") ' comment can contains close parentheses
+	Dim indexEnd As Int = methodLine.IndexOf(")")
+	Dim params As StringBuilder
+	params.Initialize
+	If indexBegin > -1 Then
+		Dim args As String = methodLine.SubString2(indexBegin + 1, indexEnd)
+		Dim prm() As String = Regex.Split(",", args)
+		For i = 0 To prm.Length - 1
+			If i > 0 Then params.Append(CRLF)
+			Dim pm() As String = Regex.Split(" As ", prm(i))
+			params.Append(pm(0).Trim).Append(" [").Append(pm(1).Trim).Append("]")
+		Next
+	Else
+		params.Append("Not required")
+	End If
+	Return params.ToString
 End Sub
 
 Private Sub GenerateLink (ApiVersion As String, Handler As String, Elements As List) As String
@@ -307,9 +450,11 @@ Private Sub GenerateLink (ApiVersion As String, Handler As String, Elements As L
 		If Link.EndsWith("/") = False Then Link = Link & "/"
 	End If
 	Link = Link & Handler.ToLowerCase
-	For i = 0 To Elements.Size - 1
-		Link = Link & "/" & Elements.Get(i)
-	Next
+	If Elements.IsInitialized Then
+		For i = 0 To Elements.Size - 1
+			Link = Link & "/" & Elements.Get(i)
+		Next
+	End If
 	Return Link
 End Sub
 
@@ -321,159 +466,121 @@ Private Sub GenerateNoApiLink (Handler As String, Elements As List) As String
 	Return Link
 End Sub
 
-Public Sub GenerateVerbSection (section As VerbSection) As String
-	Dim Color As String = section.Color
-	Dim Body As String = section.Body
-	Dim Link As String = section.Link
-	Dim Verb As String = section.Verb
-	Dim Params As String = section.Params
-	Dim Expected As String = section.Expected
-	Dim ElementId As String = section.ElementId
-	Dim FileUpload As String = section.FileUpload
-	Dim Description As String = section.Description
-	Dim Authenticate As String = section.Authenticate
-	Dim DisabledBackground As String = section.DisabledBackground
-	Dim InputDisabled As Boolean = section.InputDisabled
-	Select Color.ToLowerCase
-		Case "success"
-			Dim BgColor As String = "#d4edda"
-		Case "warning"
-			Dim BgColor As String = "#fff3cd"
-		Case "primary"
-			Dim BgColor As String = "#cce5ff"
-		Case "danger"
-			Dim BgColor As String = "#f8d7da"
-	End Select
-	Dim strFormat As String
-	If section.Raw Then strFormat = "?format=json"
-	Dim strBodySample As String
-	Dim strBodyInput As String
-	Select FileUpload
-		Case "Image"
-			strBodySample = ""
-			strBodyInput = $"File: <label for="file1${ElementId}">Choose an image file:</label><input type="file" id="file1${ElementId}" class="pb-3" name="file1" accept="image/png, image/jpeg, application/pdf">"$
-			'strFileUpload = ""
-		Case "PDF"
-			strBodySample = ""
-			strBodyInput = $"File: <label for="file1${ElementId}">Choose a PDF file:</label><input type="file" id="file1${ElementId}" class="pb-3" name="file1" accept="application/pdf">"$
-			'strFileUpload = ""
+Private Sub GenerateVerbSection (section As VerbSection) As String
+	Select section.FileUpload
+		Case "Image", "PDF"
+			Dim strBodyInput As String = $"File: <label for="file1${section.ElementId}">Choose a file:</label><input type="file" id="file1${section.ElementId}" class="pb-3" name="file1">"$
 		Case Else
-			strBodySample = $"Format: <p class="form-control" style="height: fit-content; background-color: #F0F9FF; font-size: small">${Body}</p>"$
-			strBodyInput = $"Body: <textarea id="body${ElementId}" rows="6" class="form-control data-body" style="background-color: #FFFFFF; font-size: small"></textarea></p>"$
-			'strFileUpload = ""
+			Dim strBodySample As String = $"Format: <p class="form-control" style="height: fit-content; background-color: #F0F9FF; font-size: small">${section.Body}</p>"$
+			Dim strBodyInput As String = $"Body: <textarea id="body${section.ElementId}" rows="6" class="form-control data-body" style="background-color: #FFFFFF; font-size: small"></textarea></p>"$
 	End Select
-	Dim strHtml As String = $"
-		<button class="collapsible" style="background-color: ${BgColor}"><span class="badge badge-${Color} p-1">${Verb}</span> ${Link}</button>
+	Return $"
+        <button style="color: #363636" class="collapsible collapsible-background-${section.Color}"><span style="width: 60px" class="badge badge-${section.Color} text-white py-1 mr-1">${section.Verb}</span>
+		${IIf(section.Authenticate.EqualsIgnoreCase("Basic") Or section.Authenticate.EqualsIgnoreCase("Token"), _
+			$"<span style="width: 50px" class="badge rounded-pill pill-yellow pill-yellow-text px-2 py-1">${WebApiUtils.ProperCase(section.Authenticate)}</span>"$, "")} ${section.Description}
+		</button>
         <div class="details">
-			<div class="row">
-				<div class="col-md-6 pt-3">
-					${IIf(Authenticate.EqualsIgnoreCase("Basic") Or Authenticate.EqualsIgnoreCase("Token"), _
-					$"<span class="badge rounded-pill bg-info text-white px-2 py-1">${WebApiUtils.ProperCase(Authenticate)} Authentication</span><br>"$, "")}
-					${Description}
-				</div>
-			</div>
-			<div class="row">
+            <!--<div class="row">
+                <div class="col-md-6 pt-3">
+                    ${IIf(section.Authenticate.EqualsIgnoreCase("Basic") Or section.Authenticate.EqualsIgnoreCase("Token"), _
+                    $"<span class="badge rounded-pill bg-info text-white px-2 py-1">${WebApiUtils.ProperCase(section.Authenticate)} Authentication</span><br>"$, "")}
+                    ${section.Description}
+                </div>
+            </div>-->
+            <div class="row">
+                <div class="col-md-3 p-3">
+                    <p><strong>Parameters</strong><br/>
+                    <label class="col control-label border rounded" style="padding-top: 5px; padding-bottom: 5px; background-color: #F0F9FF; font-size: small; white-space: pre-wrap;">${section.Params}</label></p>
+                    ${IIf(section.Verb.EqualsIgnoreCase("POST") Or section.Verb.EqualsIgnoreCase("PUT"), strBodySample, "")}
+                    <p><strong>Status Code</strong><br/>
+                    ${section.Expected}</p>
+                </div>
 	            <div class="col-md-3 p-3">
-					<p><strong>Parameters</strong><br/>
-	                <label class="col control-label border rounded" style="padding-top: 5px; padding-bottom: 5px; background-color: #F0F9FF; font-size: small; white-space: pre-wrap;">${Params}</label></p>					
-	                ${IIf(Verb.EqualsIgnoreCase("POST") Or Verb.EqualsIgnoreCase("PUT"), strBodySample, "")}
-	            	<p><strong>Status Code</strong><br/>
-					${Expected}</p>
-				</div>
-	            <div class="col-md-3 p-3">
-					<form method="${Verb}">
+					<form id="form1" method="${section.Verb}">
 					<p><strong>Path</strong><br/>
-	                <input${IIf(InputDisabled, " disabled", "")} id="path${ElementId}" class="form-control data-path" style="background-color: ${IIf(InputDisabled, DisabledBackground, "#FFFFFF")}; font-size: small" value="${Link & strFormat}"></p>
-					${IIf(Verb.EqualsIgnoreCase("POST") Or Verb.EqualsIgnoreCase("PUT"), strBodyInput, $""$)}
-					<button id="btn${ElementId}" class="${IIf(FileUpload.EqualsIgnoreCase("Image") Or FileUpload.EqualsIgnoreCase("PDF"), $"file"$, $"${Verb.ToLowerCase}"$)}${IIf(Authenticate.ToUpperCase = "BASIC" Or Authenticate.ToUpperCase = "TOKEN", " " & Authenticate.ToLowerCase, "")} button btn-${Color} col-md-6 col-lg-4 p-2 float-right" style="cursor: pointer; padding-bottom: 60px"><strong>Submit</strong></button>
-	            	</form>								
+	                <input${IIf(section.InputDisabled, " disabled", "")} id="path${section.ElementId}" class="form-control data-path" style="background-color: ${section.DisabledBackground}; font-size: small" value="${section.Link & IIf(section.Raw, "?format=json", "")}"></p>
+					${IIf(section.Verb.EqualsIgnoreCase("POST") Or section.Verb.EqualsIgnoreCase("PUT"), strBodyInput, $""$)}
+					<button id="btn${section.ElementId}" class="${IIf(section.FileUpload.EqualsIgnoreCase("Image") Or section.FileUpload.EqualsIgnoreCase("PDF"), $"file"$, $"${section.Verb.ToLowerCase}"$)}${IIf(section.Authenticate.ToUpperCase = "BASIC" Or section.Authenticate.ToUpperCase = "TOKEN", " " & section.Authenticate.ToLowerCase, "")} button submit-button-${section.Color} text-white col-md-6 col-lg-4 p-2 float-right" style="cursor: pointer; padding-bottom: 60px"><strong>Submit</strong></button>
+	            	</form>
 				</div>
-				<div class="col-md-6 p-3">
-					<p><strong>Response</strong><br/>
-					<textarea rows="10" id="response${ElementId}" class="form-control" style="background-color: #696969; color: white; font-size: small"></textarea></p>
-					<div id="alert${ElementId}" class="alert alert-default" role="alert" style="display: block"></div>
-				</div>
-			</div>
+                <div class="col-md-6 p-3">
+                    <p><strong>Response</strong><br/>
+                    <textarea rows="10" id="response${section.ElementId}" class="form-control" style="background-color: #696969; color: white; font-size: small"></textarea></p>
+                    <div id="alert${section.ElementId}" class="alert alert-default" role="alert" style="display: block"></div>
+                </div>
+            </div>
         </div>"$
-	Return strHtml
 End Sub
 
-Public Sub GenerateHeaderByHandler (Header As String) As String
-	Dim strHtml As String = $"
+Private Sub GenerateHeaderByGroup (Group As String) As String
+	Return $"
 		<div class="row mt-3">
             <div class="col-md-12">
-                <h6 class="text-uppercase text-primary"><strong>${Header}</strong></h6>
+                <h6 class="text-uppercase text-primary"><strong>${Group}</strong></h6>
             </div>
 		</div>"$
-	Return strHtml
 End Sub
 
-Public Sub GenerateDocItem (Props As Map) As String
-	Dim Verb As String = Props.Get("Verb")
-	Dim Handler As String = Props.Get("Handler")
-	Dim ApiVersion As String = Props.Get("Version")
-	Dim Method As String = Props.Get("Method")
-	Dim DefaultFormat As String = Props.Get("DefaultFormat")
-	Dim Params As List = Props.Get("Prm")
-	Dim Elements As List = Props.Get("Elements")
-	Dim NoApi As Boolean = Props.Get("Noapi")
-	Dim strHTML As String
-	Dim strParams As String
-	Dim strColor As String
-	Dim strLink As String
-	Dim strExpected As String = "200 Success"
-	Dim strDisabledBackground As String = "#FFFFFF"
-	Dim InputDisabled As Boolean
-	Select Verb
-		Case "GET"
-			strColor = "success"
-		Case "POST"
-			strColor = "warning"
-			strExpected = "201 Created"
-		Case "PUT"
-			strColor = "primary"
-		Case "DELETE"
-			strColor = "danger"
-	End Select
-	' Add other expected response
-	strExpected = strExpected & "<br/>400 Bad request"
-	strExpected = strExpected & "<br/>404 Not found"
-	strExpected = strExpected & "<br/>422 Error execute query"
-
-	If Params.Size > 0 Then
-		For i = 0 To Params.Size - 1
-			If i > 0 Then strParams = strParams & CRLF
-			Dim pm() As String
-			pm = Regex.Split(" As ", Params.Get(i))
-			strParams = strParams & pm(0).Trim & " [" & pm(1).Trim & "]"
-		Next
-	Else
-		strParams = "Not required"
-		InputDisabled = True
-		strDisabledBackground = "#F0F9FF"
-	End If
-	If Elements.IsInitialized = False Then Elements.Initialize
-	If NoApi Then
-		strLink = GenerateNoApiLink(Handler, Elements)
-	Else
-		strLink = GenerateLink(ApiVersion, Handler, Elements)
-	End If
-	
+Private Sub GenerateDocItem (Props As Map) As String
 	Dim section As VerbSection
 	section.Initialize
-	section.Verb = Verb
-	section.Color = strColor
-	section.ElementId = Method & Handler
-	section.Link = strLink
-	section.Raw = DefaultFormat.EqualsIgnoreCase("raw") And Verb = "GET"
-	section.FileUpload = Props.Get("FileUpload")
+	section.Verb = Props.Get("Verb")
+	section.Color = GetColorForVerb(section.Verb)
+	section.ElementId = Props.Get("Method")
+	section.Noapi = Props.Get("Noapi")
+	Dim Elements As List
+	If Props.ContainsKey("Elements") Then
+		Elements = Props.Get("Elements").As(JSON).ToList
+	End If
+	If section.Noapi Then
+		section.Link = GenerateNoApiLink(Props.Get("Group"), Elements)
+	Else
+		section.Link = GenerateLink(Props.Get("Version"), Props.Get("Group"), Elements)
+	End If
 	section.Authenticate = Props.Get("Authenticate")
 	section.Description = Props.Get("Desc")
-	section.Params = strParams
+	section.Params = Props.Get("Params")
 	section.Body = Props.Get("Body")
-	section.Expected = strExpected
-	section.InputDisabled = InputDisabled
-	section.DisabledBackground = strDisabledBackground
-	strHTML = strHTML & GenerateVerbSection(section)
-	Return strHTML
+	section.Body = section.Body.Replace(CRLF, "<br>")	' convert to html
+	section.Body = section.Body.Replace("  ", "&nbsp;")	' convert to html
+	section.Expected = IIf(Props.ContainsKey("Expected"), Props.Get("Expected"), GetExpectedResponse(section.Verb))
+	If section.Params.EqualsIgnoreCase("Not required") Then
+		section.InputDisabled = True
+		section.DisabledBackground = "#F0F9FF"
+	Else
+		section.DisabledBackground = "#FFFFFF"
+	End If
+	Return GenerateVerbSection(section)
+End Sub
+
+Private Sub GetColorForVerb (verb As String) As String
+	' https://tailwindcss.com/docs/customizing-colors
+	Select verb
+		Case "GET"
+			Return "green"
+		Case "POST"
+			Return "purple"
+		Case "PUT"
+			Return "blue"
+		Case "DELETE"
+			Return "red"
+		Case Else
+			Return ""
+	End Select
+End Sub
+
+Private Sub GetExpectedResponse (verb As String) As String
+	Dim Expected As StringBuilder
+	Expected.Initialize
+	Select verb
+		Case "POST"
+			Expected.Append("201 Created")
+		Case Else
+			Expected.Append("200 Success")
+	End Select
+	Expected.Append("<br/>400 Bad Request")
+	Expected.Append("<br/>404 Not found")
+	Expected.Append("<br/>405 Method not allowed")
+	Expected.Append("<br/>422 Error execute query")
+	Return Expected.ToString
 End Sub

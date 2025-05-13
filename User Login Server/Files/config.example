@@ -1,13 +1,17 @@
-# Product:      User Login Server
-# Version:      3.00
-# Developer:    Aeric Poon
-# License:      Donationware
-# Paypal:       https://paypal.me/aeric80/
+# Product: 		User Login Server
+# Version: 		3.20
+# Description: 	Server application project template
+# Developer:	Poon Yip Hoon (Aeric)
+# License:		CC0-1.0 license
+# GitHub:		https://github.com/pyhoon/web-api-server-b4j
+# Forum:	    https://www.b4x.com/android/forum/threads/project-template-user-login-server.161913/
+# Donation:		https://paypal.me/aeric80/
 
 # Thanks to Erel, Anywhere Software for the great products and B4X community for encouragement and supports.
 # Please consider to donate to me so I can continue to improve this project
 
 # Lines starting with '#' are comments.
+# Lines starting with ';' are disabled.
 # Backslash character at the end of line means that the command continues in the next line.
 
 # Define App Constants
@@ -20,7 +24,7 @@ APP_COPYRIGHT=Copyright Computerise System Solutions 2025
 ROOT_URL=http://127.0.0.1
 ROOT_PATH=
 API_NAME=api
-API_VERSIONING=true
+API_VERSIONING=False
 
 # Java server port
 ServerPort=8080
@@ -49,8 +53,6 @@ SSLPort=0
 DbType=SQLite
 DbFile=server.db
 DbDir=
-DriverClass=org.sqlite.JDBC
-JdbcUrl=jdbc:sqlite:{DbDir}/{DbFile}
 
 ## MySQL configuration:
 #DbType=MySQL
@@ -61,4 +63,4 @@ JdbcUrl=jdbc:sqlite:{DbDir}/{DbFile}
 #JdbcUrl=jdbc:mysql://{DbHost}:{DbPort}/{DbName}?characterEncoding=utf8&useSSL=false
 #User=root
 #Password=password
-#MaxPoolSize=100
+#MaxPoolSize=0
