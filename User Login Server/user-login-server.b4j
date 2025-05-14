@@ -44,6 +44,7 @@ Version=10.2
 ' Configurable: 	ide://goto?Module=Main&Sub=Configurable
 ' CreateDatabase:	ide://goto?Module=Main&Sub=CreateDatabase
 ' Objects folder: 	ide://run?file=%WINDIR%\SysWOW64\explorer.exe&Args=%PROJECT%\Objects
+' LibDownloader: 	ide://run?file=%JAVABIN%\java.exe&Args=-jar&Args=%ADDITIONAL%\..\B4X\libget-non-ui.jar&Args=%PROJECT%
 ' Publish:			ide://run?file=%JAVABIN%\jar.exe&WorkingDirectory=../Objects&Args=-cMf&Args=Publish.zip&Args=www&Args=*.jar&Args=*.ini
 #CommandLineArgs:
 #MergeLibraries: True

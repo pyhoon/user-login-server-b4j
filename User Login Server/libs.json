@@ -1,0 +1,28 @@
+{
+    "Libraries": [
+        {
+            "Name": "Encryption.jar",
+            "Platform": "B4J",
+            "Version": 1.10,
+            "Link": "https://github.com/pyhoon/Encryption-B4X/releases/download/1.10/Encryption.jar"
+        },
+        {
+            "Name": "Encryption.xml",
+            "Platform": "B4J",
+            "Version": 1.10,
+            "Link": "https://github.com/pyhoon/Encryption-B4X/releases/download/1.10/Encryption.xml"
+        },
+        {
+            "Name": "MiniORMUtils.b4xlib",
+            "Platform": "B4X",
+            "Version": 2.63,
+            "Link": "https://github.com/pyhoon/MiniORMUtils-B4X/releases/download/v2.63/MiniORMUtils.b4xlib"
+        },
+        {
+            "Name": "WebApiUtils.b4xlib",
+            "Platform": "B4J",
+            "Version": 3.05,
+            "Link": "https://github.com/pyhoon/WebApiUtils-B4J/releases/download/v3.05/WebApiUtils.b4xlib"
+        }
+    ]
+}
