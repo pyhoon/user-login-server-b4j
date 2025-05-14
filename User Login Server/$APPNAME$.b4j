@@ -1,5 +1,5 @@
 ﻿AppType=StandardJava
-Build1=Default,b4j.webapi,SQLite,WAL,hu2_acceptall
+Build1=Default,b4j.user.login,SQLite,hu2_acceptall
 Build2=MySQL,b4j.webapi,MySQL,hu2_acceptall
 File1=category.html
 File2=config.example
