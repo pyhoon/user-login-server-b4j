@@ -339,7 +339,8 @@ Private Sub GetShowUserList
 
 	DB.Initialize(Main.DBType, Main.DBOpen)
 	DB.Table = "tbl_users"
-	DB.Select = Array("user_email AS email", "user_name AS name", "user_location AS location", online)
+	DB.Select = Array("user_email AS email", "user_name AS name", DB.IfNull("user_location", "", "location"), online)
+	DB.ShowExtraLogs = True
 	DB.Query
 	
 	HRM.ResponseCode = 200
@@ -623,15 +624,15 @@ Private Sub PostUserLogin
 	DB.Table = "tbl_users"
 	DB.Select = Array("user_email AS 'email'", _
 	"user_name AS 'name'", _
-	"user_location AS 'location'", _
-	"ifnull(user_api_key, '') AS 'api_key'", _
+	DB.IfNull("user_location", "", "location"), _
+	DB.IfNull("user_api_key", "", "api_key"), _
 	"user_activation_flag AS 'flag'")
 	DB.Where = Array("user_email = ?", "user_hash = ?")
 	DB.Parameters = Array As String(user_email, user_hash)
 	DB.Query
 	
 	If DB.Found = False Then
-		HRM.ResponseCode = 404
+		HRM.ResponseCode = 400
 		HRM.ResponseError = "Password is incorrect"
 		DB.Close
 		ReturnApiResponse
@@ -761,6 +762,7 @@ Private Sub PostReadUserProfile
 	DB.Select = Array("user_name", _
 	"user_email", _
 	"user_location", _
+	DB.IfNull("user_location", "", ""), _
 	"user_last_login", _
 	online)
 	DB.Where = Array("user_email = ?")
@@ -975,7 +977,7 @@ Private Sub PutChangeUserPassword
 	DB.Query
 	
 	If DB.Found = False Then
-		HRM.ResponseCode = 404
+		HRM.ResponseCode = 400
 		HRM.ResponseError = "Current password incorrect"
 		DB.Close
 		ReturnApiResponse
