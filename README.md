@@ -1,4 +1,5 @@
 # user-login-server-b4j
-B4J server template for creating web api server to serve B4X native clients created using User Login Client
+B4J server project template for creating a server to manage users registration, login, change and reset password \
+use together with User Login Client template
 
 ![Documentation](../main/Web%20API%20Documentation.png)
