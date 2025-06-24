@@ -32,10 +32,6 @@ Sub Handle (req As ServletRequest, resp As ServletResponse)
 	Elements = WebApiUtils.CropElements(FullElements, 3) ' 3 For Api handler
 	Select Method
 		Case "GET"
-			'If ElementMatch("") Then
-			'	GetUsers
-			'	Return
-			'End If
 			If ElementMatch("id") Then
 				GetUserById(ElementId)
 				Return
@@ -53,10 +49,6 @@ Sub Handle (req As ServletRequest, resp As ServletResponse)
 				Return
 			End If
 		Case "POST"
-			'If ElementMatch("") Then
-			'	PostUser
-			'	Return
-			'End If
 			If ElementMatch("register") Then
 				PostRegisterUser
 				Return
@@ -78,10 +70,6 @@ Sub Handle (req As ServletRequest, resp As ServletResponse)
 				Return
 			End If
 		Case "PUT"
-			'If ElementMatch("id") Then
-			'	PutUserById(ElementId)
-			'	Return
-			'End If
 			If ElementMatch("change-password") Then
 				PutChangeUserPassword
 				Return
@@ -90,11 +78,6 @@ Sub Handle (req As ServletRequest, resp As ServletResponse)
 				PutUpdateUserProfile
 				Return
 			End If
-			'Case "DELETE"
-			'	If ElementMatch("id") Then
-			'		DeleteUserById(ElementId)
-			'		Return
-			'	End If
 		Case Else
 			Log("Unsupported method: " & Method)
 			ReturnMethodNotAllow
@@ -154,7 +137,6 @@ End Sub
 
 Private Sub ValidateToken (Token As UserData) As Boolean
 	Try
-		'If Token = Null Or Token.IsInitialized = False Then
 		If NotInitialized(Token) Then 'B4J v10.20
 			HRM.ResponseCode = 401
 			HRM.ResponseError = "Undefine User Token"
@@ -209,12 +191,12 @@ Private Sub FindUserByAccessToken (Token As String) As UserData
 		Dim user As Map = DB.First
 		Dim TokenUser As UserData
 		TokenUser.Initialize
-		'TokenUser.UserName = user.Get("user_name")
 		TokenUser.UserEmail = user.Get("user_email")
-		'TokenUser.UserActive = user.Get("user_active")
-		'TokenUser.UserFlag = user.Get("user_activation_flag")
 		TokenUser.UserToken = user.Get("user_token")
 		TokenUser.UserTokenExpiry = user.Get("user_token_expiry")
+		'TokenUser.UserName = user.Get("user_name")
+		'TokenUser.UserActive = user.Get("user_active")
+		'TokenUser.UserFlag = user.Get("user_activation_flag")
 	End If
 	DB.Close
 	Return TokenUser

@@ -118,8 +118,8 @@ Public Sub GetProductsByCategoryId (id As Int)
 End Sub
 
 Public Sub SearchByKeywords	
-	Dim Data As Map = WebApiUtils.RequestData(Request)
-	If Not(Data.IsInitialized) Then
+	Dim data As Map = WebApiUtils.RequestData(Request)
+	If Not(data.IsInitialized) Then
 		HRM.ResponseCode = 400
 		HRM.ResponseError = "Invalid json object"
 		ReturnApiResponse
@@ -127,7 +127,7 @@ Public Sub SearchByKeywords
 	End If
 
 	' Check whether required keys are provided
-	If Data.ContainsKey("keywords") = False Then
+	If data.ContainsKey("keywords") = False Then
 		HRM.ResponseCode = 400
 		HRM.ResponseError = "Key 'keywords' not found"
 		ReturnApiResponse

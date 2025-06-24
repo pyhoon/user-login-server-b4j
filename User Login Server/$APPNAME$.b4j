@@ -13,9 +13,9 @@ Group=App
 Library1=byteconverter
 Library2=encryption
 Library3=jcore
-Library4=miniormutils
-Library5=webapiutils
-Library6=jnet
+Library4=jnet
+Library5=miniormutils
+Library6=webapiutils
 Module1=CategoriesApiHandler
 Module10=Utility
 Module2=CategoriesWebHandler
@@ -44,7 +44,7 @@ Version=10.2
 ' Configurable: 	ide://goto?Module=Main&Sub=Configurable
 ' CreateDatabase:	ide://goto?Module=Main&Sub=CreateDatabase
 ' Objects folder: 	ide://run?file=%WINDIR%\SysWOW64\explorer.exe&Args=%PROJECT%\Objects
-' LibDownloader: 	ide://run?file=%JAVABIN%\java.exe&Args=-jar&Args=%ADDITIONAL%\..\B4X\libget-non-ui.jar&Args=%PROJECT%
+' LibDownloader: 	ide://run?file=%JAVABIN%\java.exe&Args=-jar&Args=%ADDITIONAL%\..\B4X\libget-non-ui.jar&Args=%PROJECT%&Args=true
 ' Publish:			ide://run?file=%JAVABIN%\jar.exe&WorkingDirectory=../Objects&Args=-cMf&Args=Publish.zip&Args=www&Args=*.jar&Args=*.ini
 #CommandLineArgs:
 #MergeLibraries: True
@@ -83,7 +83,7 @@ Sub AppStart (Args() As String)
 		srvr.AddHandler("/help", "HelpHandler", False) 									' Help handler
 	End If
 	srvr.Start
-	Log($"Web API Server (version = ${conf.Version}) is running on port ${srvr.Port}${IIf(srvr.SslPort > 0, $" (redirected to port ${srvr.SslPort})"$, "")}"$)
+	Log($"User Login Server (version = ${conf.Version}) is running on port ${srvr.Port}${IIf(srvr.SslPort > 0, $" (redirected to port ${srvr.SslPort})"$, "")}"$)
 	Log($"Open the following URL from your web browser"$)
 	Log(conf.ServerUrl)
 	InitDatabase
