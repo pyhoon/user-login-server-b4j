@@ -5,7 +5,7 @@ Type=StaticCode
 Version=10.2
 @EndOfDesignText@
 'Utility code module
-'Version 3.10
+'Version 3.11
 Sub Process_Globals
 	
 End Sub
@@ -72,8 +72,8 @@ Private Sub ReturnSuccessScript (SimpleResponseEnable As Boolean, ExpectAccessTo
 					})${IIf(ExpectAccessToken, $"
 					// Json Web Token specific
 					if (content) {
-						if ("access_token" in data) {
-							localStorage.setItem("access_token", data["access_token"])
+						if ("token" in data) {
+							localStorage.setItem("token", data["token"])
 							console.log("access token stored!")
 						}
 					}"$, "")}
@@ -91,8 +91,8 @@ Private Sub ReturnSuccessScript (SimpleResponseEnable As Boolean, ExpectAccessTo
 						})${IIf(ExpectAccessToken, $"
 						// Json Web Token specific
 						if (data.r.length > 0) {
-							if ("access_token" in data.r[0]) {
-								localStorage.setItem("access_token", data.r[0]["access_token"])
+							if ("token" in data.r[0]) {
+								localStorage.setItem("token", data.r[0]["token"])
 								console.log("access token stored!")
 							}
 						}"$, "")}
@@ -213,7 +213,7 @@ function setHeaders(element) {
 		case element.hasClass("token"):
 			return {
 				"Accept": "application/json",
-				"Authorization": "Bearer " + localStorage.getItem("access_token")
+				"Authorization": "Bearer " + localStorage.getItem("token")
 			}
 			break
 		default:

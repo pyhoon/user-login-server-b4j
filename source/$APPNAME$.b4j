@@ -20,11 +20,11 @@ Module5=Utility
 NumberOfFiles=2
 NumberOfLibraries=6
 NumberOfModules=5
-Version=10.2
+Version=10.3
 @EndOfDesignText@
 #Region Project Attributes
 ' Product: 			User Login Server (based on Web API Server Template v3.50)
-' Version: 			3.10 (require MiniORMUtils v2.63 and WebApiUtils v3.05)
+' Version: 			3.11 (require MiniORMUtils v2.63 and WebApiUtils v3.05)
 ' Description: 		Server application project template
 ' Developer:		Aeric Poon (https://www.b4x.com/android/forum/members/aeric.74499/)
 ' License:			CC0-1.0 license
@@ -54,7 +54,7 @@ Sub Process_Globals
 	Public conf 						As ServerConfigurations
 	Private Const COLOR_RED 			As Int = -65536
 	Private Const COLOR_BLUE 			As Int = -16776961
-	Private Const VERSION_NAME			As String = "3.10"
+	Private Const VERSION_NAME			As String = "3.11"
 	Public Const ACTIVATION_REQUIRED	As Boolean = False
 	Public Const NOTIFICATION_ENABLED	As Boolean = False
 	Public Const CONFIRMATION_REQUIRED	As Boolean = False
