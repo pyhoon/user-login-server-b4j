@@ -30,13 +30,16 @@ Version=10.3
 ' License:			CC0-1.0 license
 ' GitHub:			https://github.com/pyhoon/user-login-server-b4j
 ' Paypal:			https://paypal.me/aeric80/
+#Region Macros
+#Macro: Title, GetLibraries, ide://run?file=%JAVABIN%\java.exe&args=-jar&args=%ADDITIONAL%\..\B4X\libget-non-ui.jar&args=%PROJECT%&args=false
+#Macro: Title, Create Template, ide://run?file=%JAVABIN%\jar.exe&WorkingDirectory=..&args=-cMf&args=..\release\User+Login+Server+(3.11).b4xtemplate&args=*.b4j*&args=*.bas&args=*.json&args=Files&args=Objects\LICENSE&args=Objects\www\assets\css&args=Objects\www\assets\img&args=Objects\www\assets\js&args=Objects\www\assets\webfonts
+#Macro: Title, Copy to AddLibs, ide://run?file=%COMSPEC%&args=/c&args=copy&args=%PROJECT%\..\release\*.b4xtemplate&args=%ADDITIONAL%
+#Macro: Title, Distribute, ide://run?file=%JAVABIN%\jar.exe&WorkingDirectory=../Objects&Args=-cMf&Args=dist.zip&Args=www&Args=*.jar&Args=*.ini&Args=LICENSE
+#End Region
 ' *** IDE Shorcuts ***
 ' AppStart: 		ide://goto?Module=Main&Sub=AppStart
 ' Configurable: 	ide://goto?Module=Main&Sub=Configurable
 ' CreateDatabase:	ide://goto?Module=Main&Sub=CreateDatabase
-' Objects folder: 	ide://run?file=%WINDIR%\SysWOW64\explorer.exe&Args=%PROJECT%\Objects
-' LibDownloader: 	ide://run?file=%JAVABIN%\java.exe&Args=-jar&Args=%ADDITIONAL%\..\B4X\libget-non-ui.jar&Args=%PROJECT%&Args=true
-' Publish:			ide://run?file=%JAVABIN%\jar.exe&WorkingDirectory=../Objects&Args=-cMf&Args=Publish.zip&Args=www&Args=*.jar&Args=*.ini
 #CommandLineArgs:
 #MergeLibraries: True
 #If MySQL
