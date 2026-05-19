@@ -20,35 +20,34 @@ Module5=Utility
 NumberOfFiles=2
 NumberOfLibraries=6
 NumberOfModules=5
-Version=10.3
+Version=10.5
 @EndOfDesignText@
 #Region Project Attributes
 ' Product: 			User Login Server (based on Web API Server Template v3.50)
-' Version: 			3.11 (require MiniORMUtils v2.63 and WebApiUtils v3.05)
+' Version: 			3.12 (require MiniORMUtils v2.63 and WebApiUtils v3.05)
 ' Description: 		Server application project template
 ' Developer:		Aeric Poon (https://www.b4x.com/android/forum/members/aeric.74499/)
 ' License:			CC0-1.0 license
 ' GitHub:			https://github.com/pyhoon/user-login-server-b4j
 ' Paypal:			https://paypal.me/aeric80/
-#Region Macros
-#Macro: Title, GetLibraries, ide://run?file=%JAVABIN%\java.exe&args=-jar&args=%ADDITIONAL%\..\B4X\libget-non-ui.jar&args=%PROJECT%&args=false
-#Macro: Title, Create Template, ide://run?file=%JAVABIN%\jar.exe&WorkingDirectory=..&args=-cMf&args=..\release\User+Login+Server+(3.11).b4xtemplate&args=*.b4j*&args=*.bas&args=*.json&args=Files&args=Objects\LICENSE&args=Objects\www\assets\css&args=Objects\www\assets\img&args=Objects\www\assets\js&args=Objects\www\assets\webfonts
-#Macro: Title, Copy to AddLibs, ide://run?file=%COMSPEC%&args=/c&args=copy&args=%PROJECT%\..\release\*.b4xtemplate&args=%ADDITIONAL%
-#Macro: Title, Distribute, ide://run?file=%JAVABIN%\jar.exe&WorkingDirectory=../Objects&Args=-cMf&Args=dist.zip&Args=www&Args=*.jar&Args=*.ini&Args=LICENSE
-#End Region
 ' *** IDE Shorcuts ***
 ' AppStart: 		ide://goto?Module=Main&Sub=AppStart
 ' Configurable: 	ide://goto?Module=Main&Sub=Configurable
 ' CreateDatabase:	ide://goto?Module=Main&Sub=CreateDatabase
 #CommandLineArgs:
 #MergeLibraries: True
+#End Region
 #If MySQL
 #AdditionalJar: mysql-connector-java-8.0.30
 #Else
 #AdditionalJar: sqlite-jdbc-3.7.2
 #End If
+#Region Macros
+#Macro: Title, GetLibraries, ide://run?file=%ADDITIONAL%\libget.jar&args=%PROJECT%&librariesrefresh=true
+#Macro: Title, Create Template, ide://run?file=%JAVABIN%\jar.exe&WorkingDirectory=..&args=-cMf&args=..\release\User+Login+Server+(3.12).b4xtemplate&args=*.b4j*&args=*.bas&args=*.json&args=Files&args=Objects\LICENSE&args=Objects\www\assets\css&args=Objects\www\assets\img&args=Objects\www\assets\js&args=Objects\www\assets\webfonts
+#Macro: Title, Copy to AddLibs, ide://run?file=%COMSPEC%&args=/c&args=copy&args=%PROJECT%\..\release\*.b4xtemplate&args=%ADDITIONAL%
+#Macro: Title, Distribute, ide://run?file=%JAVABIN%\jar.exe&WorkingDirectory=../Objects&Args=-cMf&Args=dist.zip&Args=www&Args=*.jar&Args=*.ini&Args=LICENSE
 #End Region
-
 Sub Process_Globals
 	Public ctx							As Map
 	Public info 						As ConnectionInfo
@@ -57,7 +56,7 @@ Sub Process_Globals
 	Public conf 						As ServerConfigurations
 	Private Const COLOR_RED 			As Int = -65536
 	Private Const COLOR_BLUE 			As Int = -16776961
-	Private Const VERSION_NAME			As String = "3.11"
+	Private Const VERSION_NAME			As String = "3.12"
 	Public Const ACTIVATION_REQUIRED	As Boolean = False
 	Public Const NOTIFICATION_ENABLED	As Boolean = False
 	Public Const CONFIRMATION_REQUIRED	As Boolean = False
